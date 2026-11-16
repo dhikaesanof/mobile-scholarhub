@@ -24,6 +24,9 @@ class AuthNavigationTest {
         val regMentor = AppDestination.Register(AuthRole.Mentor)
         assertEquals(AuthRole.Mentor, regMentor.initialRole)
 
+        val home = AppDestination.Home
+        assertTrue(home is AppDestination)
+
         val detail = AppDestination.ScholarshipDetail("SH28")
         assertEquals("SH28", detail.scholarshipId)
 

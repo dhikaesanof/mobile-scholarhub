@@ -23,7 +23,7 @@ import com.example.scholarhub.ui.theme.NunitoFontFamily
 private val Navy = Color(0xFF001645)
 private val BadgeBg = Color(0xFFCCE5FF)
 private val BadgeText = Color(0xFF001D31)
-private val HeaderBg = Color(0xFFF1F1F1)
+private val HeaderBg = Color.White
 
 @Composable
 fun AuthHeader(
@@ -35,9 +35,9 @@ fun AuthHeader(
         modifier = modifier
             .fillMaxWidth()
             .shadow(
-                elevation = 3.dp,
-                spotColor = Color(0x1F000000),
-                ambientColor = Color(0x1F000000),
+                elevation = 8.dp,
+                spotColor = Color(0x38001645),
+                ambientColor = Color(0x20000000),
             )
             .background(HeaderBg)
             .statusBarsPadding()
