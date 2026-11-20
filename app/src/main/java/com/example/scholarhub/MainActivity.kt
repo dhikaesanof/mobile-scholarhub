@@ -15,10 +15,14 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.light(0xFFF1F1F1.toInt(), 0xFFF1F1F1.toInt()))
         val repository = LocalScholarshipRepository(assets)
-        val initialDestination = if (intent.hasExtra("scholarshipId")) {
-            AppDestination.ScholarshipDetail(intent.getStringExtra("scholarshipId") ?: "SH28")
-        } else {
-            AppDestination.Login
+        // Extra sementara untuk membuka layar tertentu saat pengembangan:
+        // `scholarshipId` membuka detail beasiswa, `startScreen=transactions` membuka Riwayat Transaksi
+        // (pintu masuknya dari Profil belum dibuat).
+        val initialDestination = when {
+            intent.hasExtra("scholarshipId") ->
+                AppDestination.ScholarshipDetail(intent.getStringExtra("scholarshipId") ?: "SH28")
+            intent.getStringExtra("startScreen") == "transactions" -> AppDestination.TransactionHistory
+            else -> AppDestination.Login
         }
         setContent {
             ScholarHubTheme {
