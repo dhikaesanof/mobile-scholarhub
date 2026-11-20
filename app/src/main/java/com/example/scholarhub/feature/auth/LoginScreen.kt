@@ -38,24 +38,20 @@ private val Blue = Color(0xFF006398)
 private val LabelColor = Color(0xFF141D21)
 private val MutedText = Color(0xFF444650)
 private val DividerColor = Color(0xFFE0E9EF)
-private val SwitcherBg = Color(0xFFE0E9EF)
 
 @Composable
 fun LoginScreen(
     onLoginSuccess: (email: String, isMentor: Boolean) -> Unit = { _, _ -> },
     onNavigateToRegister: (role: String) -> Unit = {},
 ) {
-    var selectedRole by rememberSaveable { mutableStateOf(AuthRole.Mahasiswa) }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
 
-    val isMentor = selectedRole == AuthRole.Mentor
-
     Scaffold(
         containerColor = BackgroundColor,
         topBar = {
-            AuthHeader(badgeText = if (isMentor) "MENTOR" else "LOGIN")
+            AuthHeader(badgeText = "LOGIN")
         },
     ) { padding ->
         Column(
@@ -94,86 +90,10 @@ fun LoginScreen(
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
-                // Role Switcher inside Login Card for easy testing
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(100.dp))
-                        .background(SwitcherBg)
-                        .padding(4.dp),
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
-                    ) {
-                        // Mahasiswa Tab
-                        val isMahasiswaActive = selectedRole == AuthRole.Mahasiswa
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .then(
-                                    if (isMahasiswaActive) {
-                                        Modifier
-                                            .shadow(elevation = 2.dp, shape = RoundedCornerShape(100.dp))
-                                            .clip(RoundedCornerShape(100.dp))
-                                            .background(Navy)
-                                    } else {
-                                        Modifier
-                                            .clip(RoundedCornerShape(100.dp))
-                                            .clickable { selectedRole = AuthRole.Mahasiswa }
-                                    },
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "Akun Mahasiswa",
-                                style = TextStyle(
-                                    fontFamily = NunitoFontFamily,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.sp,
-                                    color = if (isMahasiswaActive) Color.White else MutedText,
-                                ),
-                            )
-                        }
-
-                        // Mentor Tab
-                        val isMentorActive = selectedRole == AuthRole.Mentor
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(38.dp)
-                                .then(
-                                    if (isMentorActive) {
-                                        Modifier
-                                            .shadow(elevation = 2.dp, shape = RoundedCornerShape(100.dp))
-                                            .clip(RoundedCornerShape(100.dp))
-                                            .background(Navy)
-                                    } else {
-                                        Modifier
-                                            .clip(RoundedCornerShape(100.dp))
-                                            .clickable { selectedRole = AuthRole.Mentor }
-                                    },
-                                ),
-                            contentAlignment = Alignment.Center,
-                        ) {
-                            Text(
-                                text = "Akun Mentor",
-                                style = TextStyle(
-                                    fontFamily = NunitoFontFamily,
-                                    fontWeight = FontWeight.SemiBold,
-                                    fontSize = 13.sp,
-                                    color = if (isMentorActive) Color.White else MutedText,
-                                ),
-                            )
-                        }
-                    }
-                }
-
                 // Email field
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Text(
-                        text = if (isMentor) "Email Mentor" else "Email",
+                        text = "Email",
                         style = TextStyle(
                             fontFamily = NunitoFontFamily,
                             fontWeight = FontWeight.SemiBold,
@@ -184,7 +104,7 @@ fun LoginScreen(
                     AuthInputField(
                         value = email,
                         onValueChange = { email = it },
-                        placeholder = if (isMentor) "mentor@scholarhub.com" else "Masukkan email Anda",
+                        placeholder = "Masukkan email Anda",
                         leadingIcon = R.drawable.ic_auth_email,
                         keyboardType = KeyboardType.Email,
                         cornerRadius = 12.dp,
@@ -238,7 +158,7 @@ fun LoginScreen(
                         .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp), spotColor = Color(0x330F2A66))
                         .clip(RoundedCornerShape(12.dp))
                         .background(NavyDark)
-                        .clickable { onLoginSuccess(email, isMentor || email.contains("mentor", ignoreCase = true)) },
+                        .clickable { onLoginSuccess(email, email.contains("mentor", ignoreCase = true)) },
                     contentAlignment = Alignment.Center,
                 ) {
                     Row(
@@ -246,7 +166,7 @@ fun LoginScreen(
                         horizontalArrangement = Arrangement.Center,
                     ) {
                         Text(
-                            text = if (isMentor) "Masuk ke Akun Mentor" else "Masuk ke Akun",
+                            text = "Masuk ke Akun",
                             style = TextStyle(
                                 fontFamily = NunitoFontFamily,
                                 fontWeight = FontWeight.Bold,
