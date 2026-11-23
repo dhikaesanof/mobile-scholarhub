@@ -2,52 +2,41 @@ package com.example.scholarhub.domain.scholarmatch
 
 import java.math.BigDecimal
 
-/** Jawaban sementara form ScholarMatch. Nilai null berarti belum dijawab. */
+/**
+ * Jawaban form ScholarMatch (Figma `134:1910`). Nilai null berarti belum dijawab.
+ * Bagian profil (status kuliah sampai IPK) bisa diisi dari profil yang tersimpan di sesi.
+ */
 data class MatchInput(
-    val degree: DegreeAnswer? = null,
-    val semester: SemesterAnswer? = null,
-    val gpa: BigDecimal? = null,
-    val campusName: String? = null,
+    val activeStudent: Boolean? = null,
+    /** Salah satu dari D3, D4, S1, S2, S3. */
+    val degree: String? = null,
+    /** Nama dari `campusOptions`; [campusType] ikut diisi dari pilihan itu. */
+    val campus: String? = null,
+    val campusType: String? = null,
+    /** Nama dari `majorOptions`. */
     val major: String? = null,
-    val campusType: CampusTypeAnswer? = null,
-    val parentIncome: IncomeAnswer? = null,
+    val semester: Int? = null,
+    val gpa: BigDecimal? = null,
+    /** "Belum punya IPK": syarat IPK menjadi perlu dicek, bukan gagal. */
+    val noGpa: Boolean = false,
+    val organization: Boolean? = null,
     val receivingScholarship: Boolean? = null,
-    /** Jawaban berikut ditanyakan di form, tetapi skema katalog v1 belum punya field aturan untuknya. */
-    val englishTest: EnglishTestAnswer? = null,
-    val englishScore: String? = null,
-    val achievement: AchievementAnswer? = null,
-    val organization: OrganizationAnswer? = null,
-    val from3TRegion: Boolean? = null,
-    /** ID dari `preferenceOptions`, maksimal [MAX_PRIORITIES]. */
+    val commitment: Boolean? = null,
+    /** ID dari `preferenceOptions`, [MIN_PRIORITIES]–[MAX_PRIORITIES] pilihan. */
     val priorities: Set<String> = emptySet(),
 ) {
+    /** Data profil wajib sebelum melihat rekomendasi (Figma `172:2348`). */
+    val profileComplete: Boolean
+        get() = activeStudent != null && degree != null && campus != null && major != null &&
+            semester != null && (gpa != null || noGpa)
+
+    val complete: Boolean
+        get() = profileComplete && organization != null && receivingScholarship != null && commitment != null &&
+            priorities.size in MIN_PRIORITIES..MAX_PRIORITIES
+
     companion object {
+        const val MIN_PRIORITIES = 2
         const val MAX_PRIORITIES = 5
+        val Degrees = listOf("D3", "D4", "S1", "S2", "S3")
     }
 }
-
-/** "D3 / D4 (Vokasi)" mencakup dua jenjang, sehingga aturan yang hanya menerima salah satunya menjadi belum diketahui. */
-enum class DegreeAnswer(val values: Set<String>) {
-    Vocational(setOf("D3", "D4")),
-    Bachelor(setOf("S1")),
-    Master(setOf("S2")),
-    Doctoral(setOf("S3")),
-}
-
-/** Rentang semester di form. "7-8+" mencakup semester 7 sampai 14. */
-enum class SemesterAnswer(val values: Set<Int>) {
-    Sem1To2(setOf(1, 2)),
-    Sem3To4(setOf(3, 4)),
-    Sem5To6(setOf(5, 6)),
-    Sem7Plus((7..14).toSet()),
-}
-
-enum class CampusTypeAnswer(val value: String) { PTN("PTN"), PTS("PTS"), PTK("PTK") }
-
-enum class IncomeAnswer { Below3M, From3MTo7_5M, From7_5MTo15M, Above15M }
-
-enum class EnglishTestAnswer { None, ToeflItp, ToeflIbt, Ielts }
-
-enum class AchievementAnswer { International, National, Regional, None }
-
-enum class OrganizationAnswer { CoreBoard, Coordinator, ActiveMember, Inactive }
