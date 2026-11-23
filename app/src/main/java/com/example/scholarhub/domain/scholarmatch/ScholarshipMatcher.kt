@@ -6,12 +6,14 @@ import com.example.scholarhub.domain.scholarship.RuleOperator
 import com.example.scholarhub.domain.scholarship.RuleValue
 import com.example.scholarhub.domain.scholarship.Scholarship
 import java.math.BigDecimal
+import java.time.LocalDate
 
 /**
  * Mencocokkan jawaban [MatchInput] dengan aturan eligibility katalog. Independen dari UI dan penyimpanan.
  *
  * - `commonRule` dievaluasi lalu setiap jalur di `tracks` dinilai terpisah (aturan umum + aturan jalur).
  * - Grup `all`: satu syarat gagal membuat grup gagal. Grup `any`: satu alternatif terpenuhi membuat grup terpenuhi.
+ * - Hanya beasiswa yang pendaftarannya berjalan pada [today] (antara `opensOn` dan `closesOn`) yang dinilai.
  * - Jawaban kosong (atau field yang tidak ditanyakan form) menghasilkan keadaan belum diketahui.
  * - Jika aturan otomatis terpenuhi tetapi masih ada `manualChecks`, hasilnya **Perlu dicek** beserta ketentuannya.
  * - Skor = jumlah prioritas unik yang cocok dengan tag manfaat yang didukung data (tanpa manfaat bersyarat
@@ -23,11 +25,12 @@ class ScholarshipMatcher {
         scholarships: List<Scholarship>,
         input: MatchInput,
         preferenceOptions: List<PreferenceOption>,
+        today: LocalDate,
     ): List<ScholarshipMatch> {
         val priorities = input.priorities.take(MatchInput.MAX_PRIORITIES).toSet()
         val answers = answersFor(input)
         return scholarships
-            .filter { it.isOpenAtSnapshot() }
+            .filter { it.isOpenOn(today) }
             .map { evaluate(it, answers, priorities, preferenceOptions) }
             .sortedWith(compareBy<ScholarshipMatch> { it.status.ordinalForSort() }.thenByDescending { it.score })
     }
@@ -122,16 +125,6 @@ class ScholarshipMatcher {
                     else -> Eval(Outcome.Unknown, listOf("$requirement (jawabanmu berupa rentang)"))
                 }
             }
-            is FieldAnswer.FreeText -> {
-                val accepted = condition.values.mapNotNull { (it as? RuleValue.Text)?.value }
-                val matches = accepted.any { textMatches(answer.text, it) }
-                if ((condition.operator == RuleOperator.EQ || condition.operator == RuleOperator.IN) && matches) {
-                    Eval.Pass
-                } else {
-                    // Teks bebas tidak bisa dianggap gagal dengan yakin (penulisan nama kampus/jurusan beragam).
-                    Eval(Outcome.Unknown, listOf("$requirement (cocokkan dengan \"${answer.text}\")"))
-                }
-            }
         }
     }
 
@@ -160,29 +153,25 @@ class ScholarshipMatcher {
     internal sealed interface FieldAnswer {
         /** Satu atau beberapa nilai yang mungkin; semua harus memenuhi agar syarat dianggap terpenuhi. */
         data class Candidates(val values: List<RuleValue>) : FieldAnswer
-        data class FreeText(val text: String) : FieldAnswer
     }
 
     internal fun answersFor(input: MatchInput): Map<String, FieldAnswer> = buildMap {
-        input.degree?.let { put("degree", FieldAnswer.Candidates(it.values.map(RuleValue::Text))) }
-        input.semester?.let { s -> put("semester", FieldAnswer.Candidates(s.values.map { RuleValue.Number(BigDecimal(it)) })) }
-        input.gpa?.let { put("gpa", FieldAnswer.Candidates(listOf(RuleValue.Number(it)))) }
-        input.campusName?.takeIf { it.isNotBlank() }?.let { put("campus", FieldAnswer.FreeText(it.trim())) }
-        input.major?.takeIf { it.isNotBlank() }?.let { put("major", FieldAnswer.FreeText(it.trim())) }
-        input.campusType?.let { put("campusType", FieldAnswer.Candidates(listOf(RuleValue.Text(it.value)))) }
-        when (input.parentIncome) {
-            IncomeAnswer.Below3M -> put("financialNeed", flag(true))
-            IncomeAnswer.Above15M -> put("financialNeed", flag(false))
-            // Rentang menengah tidak cukup untuk menilai kebutuhan finansial tiap beasiswa.
-            IncomeAnswer.From3MTo7_5M, IncomeAnswer.From7_5MTo15M, null -> Unit
-        }
+        input.activeStudent?.let { put("activeStudent", flag(it)) }
+        input.degree?.let { put("degree", text(it)) }
+        input.campus?.let { put("campus", text(it)) }
+        input.campusType?.let { put("campusType", text(it)) }
+        input.major?.let { put("major", text(it)) }
+        input.semester?.let { put("semester", FieldAnswer.Candidates(listOf(RuleValue.Number(BigDecimal(it))))) }
+        // "Belum punya IPK" membiarkan syarat IPK belum diketahui.
+        input.gpa?.takeUnless { input.noGpa }?.let { put("gpa", FieldAnswer.Candidates(listOf(RuleValue.Number(it)))) }
+        input.organization?.let { put("organization", flag(it)) }
+        input.commitment?.let { put("commitment", flag(it)) }
         when (input.receivingScholarship) {
             false -> {
                 put("otherScholarship", flag(false))
-                put("otherFullScholarship", flag(false))
-                put("sameObjectOtherFunding", flag(false))
+                put("otherTuitionAid", flag(false))
             }
-            // Beasiswa lain yang sedang diterima bisa penuh atau sebagian; hanya field umum yang bisa dinilai.
+            // Beasiswa lain yang sedang diterima bisa berupa bantuan UKT atau nonpendidikan; hanya field umum yang bisa dinilai.
             true -> put("otherScholarship", flag(true))
             null -> Unit
         }
@@ -190,12 +179,7 @@ class ScholarshipMatcher {
 
     private fun flag(value: Boolean) = FieldAnswer.Candidates(listOf(RuleValue.Flag(value)))
 
-    private fun textMatches(input: String, accepted: String): Boolean {
-        val text = input.lowercase().trim()
-        val value = accepted.lowercase().trim()
-        if (text == value || text.contains("($value)")) return true
-        return text.split(Regex("[^\\p{L}\\p{N}]+")).any { it == value }
-    }
+    private fun text(value: String) = FieldAnswer.Candidates(listOf(RuleValue.Text(value)))
 
     private fun describe(c: EligibilityRule.Condition): String {
         val values = c.values.map(::format)
@@ -216,7 +200,12 @@ class ScholarshipMatcher {
 
     private fun fieldLabel(field: String): String = FieldLabels[field] ?: field
 
-    private fun Scholarship.isOpenAtSnapshot() = registration.statusAtSnapshot.startsWith("open")
+    private fun Scholarship.isOpenOn(today: LocalDate): Boolean {
+        val reg = registration
+        if (reg.statusAtSnapshot == "archived") return false
+        if (reg.opensOn != null && today.isBefore(reg.opensOn)) return false
+        return if (reg.closesOn != null) !today.isAfter(reg.closesOn) else reg.statusAtSnapshot.startsWith("open")
+    }
 
     private fun MatchStatus.ordinalForSort() = when (this) {
         MatchStatus.Eligible -> 0
@@ -235,6 +224,9 @@ class ScholarshipMatcher {
             "cohort" to "Angkatan",
             "citizenship" to "Kewarganegaraan",
             "activeStudent" to "Status mahasiswa aktif",
+            "organization" to "Pengalaman organisasi",
+            "commitment" to "Komitmen kegiatan dan laporan",
+            "otherTuitionAid" to "Sedang menerima bantuan UKT lain",
             "financialNeed" to "Membutuhkan bantuan finansial",
             "otherScholarship" to "Sedang menerima beasiswa lain",
             "otherFullScholarship" to "Sedang menerima beasiswa penuh lain",
