@@ -140,14 +140,14 @@ class MentoringStore(private val clock: Clock = Clock.systemDefaultZone()) {
 
     fun find(id: String): Booking? = state.value.firstOrNull { it.id == id }
 
-    fun book(mentor: SessionPerson, topic: String, start: LocalDateTime, end: LocalDateTime, price: Int): Booking {
+    fun book(mentor: SessionPerson, topic: String, start: LocalDateTime, end: LocalDateTime, price: Int, mentee: SessionPerson = SampleMentee): Booking {
         val created = now()
         val number = state.value.size + 90
         val booking = Booking(
             id = "B$number",
             invoice = "INV/SH/${created.format(DateTimeFormatter.BASIC_ISO_DATE)}/%03d".format(number),
             mentor = mentor,
-            mentee = SampleMentee,
+            mentee = mentee,
             topic = topic,
             start = start,
             end = end,

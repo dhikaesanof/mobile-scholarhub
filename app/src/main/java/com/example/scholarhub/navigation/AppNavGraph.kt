@@ -75,6 +75,12 @@ import com.example.scholarhub.feature.mentor.MentorEditProfileScreen
 import com.example.scholarhub.feature.mentor.MentorSessionHistoryScreen
 import com.example.scholarhub.feature.mentor.IncomeHistoryScreen
 import com.example.scholarhub.feature.mentor.WithdrawalHistoryScreen
+import com.example.scholarhub.data.auth.AuthRepository
+import com.example.scholarhub.data.auth.AppUser
+import com.example.scholarhub.data.auth.UserRole
+import com.example.scholarhub.feature.home.SampleHomeUiState
+import kotlinx.coroutines.launch
+import com.example.scholarhub.feature.mentoring.SampleMentee
 
 sealed interface AppDestination {
     data object Login : AppDestination
@@ -130,21 +136,52 @@ fun AppNavGraph(
     var currentDestination by remember {
         mutableStateOf(initialDestination)
     }
-    // Form, hasil, dan Home berbagi ViewModel ScholarMatch selama sesi (memori saja); dibuat ulang saat kembali ke Login.
-    var scholarMatchModel by remember { mutableStateOf(ScholarMatchViewModel(repository)) }
+    // Data per akun (memori saja), disimpan per uid agar ganti akun di satu emulator tidak menghapus data akun lain.
+    val accounts = remember { mutableMapOf<String, AccountData>() }
+    var account by remember { mutableStateOf(AccountData(repository)) }
+    // Form, hasil, dan Home berbagi ViewModel ScholarMatch milik akun yang masuk.
+    var scholarMatchModel by remember { mutableStateOf(account.scholarMatch) }
     val openScholarMatch = { currentDestination = AppDestination.ScholarMatchForm }
-    // Pesanan dan sesi mentoring di memori untuk satu sesi masuk (mentee dan mentor memakai data yang sama).
-    var mentoring by remember { mutableStateOf(MentoringStore()) }
-    var documents by remember { mutableStateOf(DocumentStore()) }
-    var tracker by remember { mutableStateOf(TrackerStore()) }
-    var profileStore by remember { mutableStateOf(ProfileStore()) }
-    var mentorProfile by remember { mutableStateOf(MentorProfileStore()) }
+    // Slot, pesanan, pembayaran, dan sesi dipakai bersama semua akun selama aplikasi terbuka (mentor membuka slot, mentee memesan).
+    val mentoring = remember { MentoringStore() }
+    var documents by remember { mutableStateOf(account.documents) }
+    var tracker by remember { mutableStateOf(account.tracker) }
+    var profileStore by remember { mutableStateOf(account.profile) }
+    var mentorProfile by remember { mutableStateOf(account.mentorProfile) }
+    var readNotifications by remember { mutableStateOf(account.readNotifications) }
+    // Akun Firebase yang masuk; sesi tersimpan otomatis dan dipulihkan sekali saat aplikasi dibuka.
+    val auth = remember { AuthRepository() }
+    var user by remember { mutableStateOf<AppUser?>(null) }
+    var sessionChecked by remember { mutableStateOf(false) }
+    var authLoading by remember { mutableStateOf(false) }
+    var authError by remember { mutableStateOf<String?>(null) }
+    val authScope = rememberCoroutineScope()
+    val enter = { signedIn: AppUser ->
+        user = signedIn
+        account = accounts.getOrPut(signedIn.uid) { AccountData(repository) }
+        scholarMatchModel = account.scholarMatch
+        documents = account.documents
+        tracker = account.tracker
+        profileStore = account.profile
+        mentorProfile = account.mentorProfile
+        readNotifications = account.readNotifications
+        profileStore.update { it.copy(name = signedIn.name) }
+        mentorProfile.update { it.copy(name = signedIn.name, email = signedIn.email) }
+        currentDestination = if (signedIn.role == UserRole.Mentor) AppDestination.MentorHome else AppDestination.Home
+    }
+    val runAuth = { action: suspend () -> Result<AppUser> ->
+        authLoading = true
+        authError = null
+        authScope.launch {
+            action().fold(onSuccess = { enter(it) }, onFailure = { authError = it.message })
+            authLoading = false
+        }
+        Unit
+    }
     val openTransactions = { currentDestination = AppDestination.TransactionHistory }
     val uriHandler = LocalUriHandler.current
     // Pusat Bantuan: belum ada halaman bantuan di Figma, jadi membuka email admin.
     val contactAdmin: () -> Unit = { runCatching { uriHandler.openUri(AdminContact) } }
-    // Notifikasi yang sudah dibaca, per sesi masuk.
-    var readNotifications by remember { mutableStateOf(emptySet<String>()) }
     val catalog by produceState(emptyList<Scholarship>(), repository) {
         value = repository.getCatalog().getOrNull()?.scholarships.orEmpty()
     }
@@ -175,40 +212,41 @@ fun AppNavGraph(
 
     when (val dest = currentDestination) {
         AppDestination.Login -> {
-            // Profil dan hasil ScholarMatch hanya berlaku untuk satu sesi masuk.
+            // Data akun tetap tersimpan di `accounts` dan kembali saat akun yang sama masuk lagi.
             LaunchedEffect(Unit) {
-                scholarMatchModel = ScholarMatchViewModel(repository)
-                mentoring = MentoringStore()
-                documents = DocumentStore()
-                tracker = TrackerStore()
-                profileStore = ProfileStore()
-                mentorProfile = MentorProfileStore()
-                readNotifications = emptySet()
+                // Saat aplikasi dibuka: pulihkan akun yang masih masuk. Kembali ke Login berikutnya berarti keluar.
+                if (!sessionChecked) {
+                    sessionChecked = true
+                    auth.restore()?.let { enter(it); return@LaunchedEffect }
+                } else {
+                    auth.logout()
+                    user = null
+                }
+                authError = null
             }
             LoginScreen(
-                onLoginSuccess = { _, isMentor ->
-                    if (isMentor) {
-                        currentDestination = AppDestination.MentorHome
-                    } else {
-                        currentDestination = AppDestination.Home
-                    }
+                onLogin = { email, password -> runAuth { auth.login(email, password) } },
+                onNavigateToRegister = {
+                    authError = null
+                    currentDestination = AppDestination.Register()
                 },
-                onNavigateToRegister = { currentDestination = AppDestination.Register() },
+                loading = authLoading || !sessionChecked,
+                error = authError,
             )
         }
         is AppDestination.Register -> {
+            BackHandler { currentDestination = AppDestination.Login }
             RegisterScreen(
                 initialRole = dest.initialRole,
-                onRegisterSuccess = { role ->
-                    if (role == AuthRole.Mentor) {
-                        currentDestination = AppDestination.MentorHome
-                    } else {
-                        currentDestination = AppDestination.Home
-                    }
+                onRegister = { name, email, password, role ->
+                    runAuth { auth.register(name, email, password, if (role == AuthRole.Mentor) UserRole.Mentor else UserRole.Mentee) }
                 },
                 onNavigateToLogin = {
+                    authError = null
                     currentDestination = AppDestination.Login
                 },
+                loading = authLoading,
+                error = authError,
             )
         }
         AppDestination.Home -> {
@@ -219,6 +257,7 @@ fun AppNavGraph(
             val now = rememberNow(mentoring)
             val nearest = bookings.filter { it.phaseAt(now)?.isUpcoming == true }.minByOrNull { it.start }
             HomeScreen(
+                state = SampleHomeUiState.copy(userName = user?.name?.substringBefore(' ') ?: SampleHomeUiState.userName),
                 onNavigateToDetail = { id ->
                     currentDestination = AppDestination.ScholarshipDetail(id)
                 },
@@ -263,7 +302,9 @@ fun AppNavGraph(
                 onBack = back,
                 onPay = {
                     val d = dest.draft
-                    val booking = mentoring.book(d.mentor, d.topic, d.start, d.end, d.price)
+                    // Mentee yang memesan = akun yang masuk; foto masih contoh karena foto profil belum disimpan.
+                    val mentee = user?.let { SampleMentee.copy(id = it.uid, name = it.name, affiliation = profileStore.profile.value.campus ?: SampleMentee.affiliation) } ?: SampleMentee
+                    val booking = mentoring.book(d.mentor, d.topic, d.start, d.end, d.price, mentee)
                     currentDestination = AppDestination.Qris(booking.id, backTo = AppDestination.MentorDetail(d.mentor.id))
                 },
             )
@@ -452,7 +493,10 @@ fun AppNavGraph(
                 groups = if (dest.mentor) SampleMentorNotificationGroups else SampleNotificationGroups,
                 categories = if (dest.mentor) MentorNotificationCategories else MenteeNotificationCategories,
                 readIds = readNotifications,
-                onRead = { readNotifications = it },
+                onRead = {
+                    readNotifications = it
+                    account.readNotifications = it
+                },
                 onBack = back,
             )
         }
@@ -550,6 +594,7 @@ fun AppNavGraph(
         AppDestination.MentorHome -> {
             MentorHomeScreen(
                 store = mentoring,
+                mentorName = user?.name?.substringBefore(' ') ?: "Samantha",
                 onBack = { currentDestination = AppDestination.Login },
                 onSeeAll = { currentDestination = AppDestination.MentorSessions },
                 onOpenMentee = { currentDestination = AppDestination.MenteeProfile(backTo = AppDestination.MentorHome) },
@@ -654,4 +699,17 @@ private fun menteeTabDestination(tab: MenteeNavTab): AppDestination? = when (tab
     MenteeNavTab.Profile -> AppDestination.Profile
     MenteeNavTab.Scholarship -> AppDestination.ScholarshipList
     MenteeNavTab.Documents -> AppDestination.Documents()
+}
+
+/**
+ * Data milik satu akun selama aplikasi terbuka. shortcut: hanya di memori; pindahkan ke Firestore bila demo butuh data
+ * tetap ada setelah aplikasi ditutup.
+ */
+private class AccountData(repository: LocalScholarshipRepository) {
+    val scholarMatch = ScholarMatchViewModel(repository)
+    val documents = DocumentStore()
+    val tracker = TrackerStore()
+    val profile = ProfileStore()
+    val mentorProfile = MentorProfileStore()
+    var readNotifications: Set<String> = emptySet()
 }

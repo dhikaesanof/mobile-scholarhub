@@ -30,6 +30,9 @@ import com.example.scholarhub.R
 import com.example.scholarhub.feature.auth.components.AuthHeader
 import com.example.scholarhub.feature.auth.components.AuthInputField
 import com.example.scholarhub.ui.theme.NunitoFontFamily
+import androidx.compose.ui.draw.alpha
+import com.example.scholarhub.ui.theme.ErrorRed
+import androidx.compose.foundation.layout.fillMaxWidth
 
 private val BackgroundColor = Color(0xFFF1F1F1)
 private val NavyDark = Color(0xFF0F2A66)
@@ -50,12 +53,25 @@ private val LabelStyle = TextStyle(
 /** Login (Figma `130:5758`). */
 @Composable
 fun LoginScreen(
-    onLoginSuccess: (email: String, isMentor: Boolean) -> Unit = { _, _ -> },
+    onLogin: (email: String, password: String) -> Unit = { _, _ -> },
     onNavigateToRegister: () -> Unit = {},
+    /** Sedang menunggu Firebase; tombol nonaktif. */
+    loading: Boolean = false,
+    /** Galat dari server (mis. "Email atau kata sandi salah."). */
+    error: String? = null,
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var localError by rememberSaveable { mutableStateOf<String?>(null) }
+    val submit = {
+        localError = when {
+            email.isBlank() || password.isBlank() -> "Isi email dan kata sandi."
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Format email tidak valid."
+            else -> null
+        }
+        if (localError == null) onLogin(email, password)
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -132,6 +148,13 @@ fun LoginScreen(
                         )
                     }
 
+                    (localError ?: error)?.let {
+                        Text(
+                            text = it,
+                            modifier = Modifier.fillMaxWidth(),
+                            style = TextStyle(fontFamily = NunitoFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp, color = ErrorRed),
+                        )
+                    }
                     Box(
                         modifier = Modifier
                             .padding(top = 8.25.dp)
@@ -140,11 +163,12 @@ fun LoginScreen(
                             .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.37.dp), spotColor = Color(0x400F2A66))
                             .clip(RoundedCornerShape(12.37.dp))
                             .background(NavyDark)
-                            .clickable { onLoginSuccess(email, email.contains("mentor", ignoreCase = true)) },
+                            .alpha(if (loading) 0.6f else 1f)
+                            .clickable(enabled = !loading, onClick = submit),
                         contentAlignment = Alignment.Center,
                     ) {
                         Text(
-                            text = "Masuk ke Akun",
+                            text = if (loading) "Memproses..." else "Masuk ke Akun",
                             style = TextStyle(
                                 fontFamily = NunitoFontFamily,
                                 fontWeight = FontWeight.Medium,

@@ -32,6 +32,9 @@ import com.example.scholarhub.R
 import com.example.scholarhub.feature.auth.components.AuthHeader
 import com.example.scholarhub.feature.auth.components.AuthInputField
 import com.example.scholarhub.ui.theme.NunitoFontFamily
+import androidx.compose.ui.draw.alpha
+import com.example.scholarhub.ui.theme.ErrorRed
+import androidx.compose.foundation.layout.fillMaxWidth
 
 enum class AuthRole(val label: String) {
     Mahasiswa("Mahasiswa"),
@@ -53,14 +56,25 @@ private val BodyStyle = TextStyle(fontFamily = NunitoFontFamily, fontSize = 14.4
 @Composable
 fun RegisterScreen(
     initialRole: AuthRole = AuthRole.Mahasiswa,
-    onRegisterSuccess: (AuthRole) -> Unit = {},
+    onRegister: (name: String, email: String, password: String, role: AuthRole) -> Unit = { _, _, _, _ -> },
     onNavigateToLogin: () -> Unit = {},
+    loading: Boolean = false,
+    error: String? = null,
 ) {
     var selectedRole by rememberSaveable { mutableStateOf(initialRole) }
     var fullName by rememberSaveable { mutableStateOf("") }
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    var localError by rememberSaveable { mutableStateOf<String?>(null) }
+    val submit = {
+        localError = when {
+            fullName.isBlank() -> "Nama lengkap wajib diisi."
+            !android.util.Patterns.EMAIL_ADDRESS.matcher(email.trim()).matches() -> "Format email tidak valid."
+            else -> com.example.scholarhub.feature.profile.passwordProblem(password)?.let { "Kata sandi: $it" }
+        }
+        if (localError == null) onRegister(fullName, email, password, selectedRole)
+    }
 
     Scaffold(
         containerColor = BackgroundColor,
@@ -179,6 +193,13 @@ fun RegisterScreen(
                     },
                 )
 
+                (localError ?: error)?.let {
+                    Text(
+                        text = it,
+                        modifier = Modifier.fillMaxWidth(),
+                        style = TextStyle(fontFamily = NunitoFontFamily, fontWeight = FontWeight.SemiBold, fontSize = 12.sp, lineHeight = 16.sp, color = ErrorRed),
+                    )
+                }
                 Box(
                     modifier = Modifier
                         .padding(top = 4.dp)
@@ -187,11 +208,12 @@ fun RegisterScreen(
                         .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.37.dp), spotColor = Color(0x400F2A66))
                         .clip(RoundedCornerShape(12.37.dp))
                         .background(NavyDark)
-                        .clickable { onRegisterSuccess(selectedRole) },
+                        .alpha(if (loading) 0.6f else 1f)
+                        .clickable(enabled = !loading, onClick = submit),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
-                        text = "Daftar Akun Sekarang",
+                        text = if (loading) "Memproses..." else "Daftar Akun Sekarang",
                         style = TextStyle(
                             fontFamily = NunitoFontFamily,
                             fontWeight = FontWeight.Medium,

@@ -78,6 +78,7 @@ fun MentorHomeScreen(
     onOpenMentee: (bookingId: String) -> Unit,
     onTabSelect: (MentorNavTab) -> Unit,
     onOpenSlot: () -> Unit = {},
+    mentorName: String = "Samantha",
     onOpenNotifications: () -> Unit = {},
 ) {
     val bookings by store.bookings.collectAsState()
@@ -100,7 +101,7 @@ fun MentorHomeScreen(
         ) {
             Column {
                 Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text("Selamat Datang, Samantha!", style = MaterialTheme.typography.titleMedium, color = Navy)
+                    Text("Selamat Datang, $mentorName!", style = MaterialTheme.typography.titleMedium, color = Navy)
                     Image(painterResource(R.drawable.mascot_greeting), null, Modifier.size(width = 22.dp, height = 17.dp))
                 }
                 Text("Yuk, bantu mentee selangkah lebih dekat dengan beasiswa impiannya!", style = MaterialTheme.typography.bodyMedium, color = Navy)
