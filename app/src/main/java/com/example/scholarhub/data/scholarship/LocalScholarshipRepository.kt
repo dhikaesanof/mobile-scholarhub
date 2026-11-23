@@ -1,7 +1,6 @@
 package com.example.scholarhub.data.scholarship
 
 import android.content.res.AssetManager
-import com.example.scholarhub.domain.scholarship.PreferenceOption
 import com.example.scholarhub.domain.scholarship.Scholarship
 import com.example.scholarhub.domain.scholarship.ScholarshipCatalog
 import com.example.scholarhub.domain.scholarship.ScholarshipRepository
@@ -32,7 +31,4 @@ class LocalScholarshipRepository internal constructor(
 
     override suspend fun getById(id: String): Result<Scholarship?> =
         getCatalog().map { catalog -> catalog.scholarships.firstOrNull { it.id == id } }
-
-    override suspend fun getPreferenceOptions(): Result<List<PreferenceOption>> =
-        getCatalog().map { it.preferenceOptions }
 }
