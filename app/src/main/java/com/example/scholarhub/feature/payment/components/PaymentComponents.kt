@@ -180,11 +180,11 @@ fun PayButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) 
         text = text,
         onClick = onClick,
         modifier = modifier.fillMaxWidth().height(41.dp),
-        containerColor = NavyStrong,
+        containerColor = Navy,
         solidShadow = PayButtonShadow,
         shadowOffset = 3.092.dp,
         contentPadding = PaddingValues(horizontal = 20.81.dp),
-        textStyle = nunitoSans(12.369f, 16.492f, InterSemiBold, tracking = 0.2474f),
+        textStyle = MaterialTheme.typography.labelLarge,
         leadingContent = {
             Image(
                 painter = painterResource(R.drawable.ic_pay_wallet),
@@ -198,27 +198,14 @@ fun PayButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier) 
 
 private val PayButtonShadow = Color(0xFF08193D)
 
+/** Figma `215:6371` hanya menyediakan QRIS & E-Wallet. */
 val SamplePaymentMethods = listOf(
     PaymentMethodUi(
         id = "qris",
-        title = "Instant QRIS & E-Wallet",
-        description = "Bebas biaya admin, konfirmasi dalam 5 detik",
+        title = "QRIS & E-Wallet",
+        description = "Bebas biaya admin",
         icon = R.drawable.ic_pay_qris,
         providers = listOf("QRIS", "GoPay", "OVO", "ShopeePay", "DANA"),
-    ),
-    PaymentMethodUi(
-        id = "va",
-        title = "Virtual Account Bank",
-        description = "BCA, Mandiri, BRI, BNI",
-        icon = R.drawable.ic_pay_bank,
-        providers = listOf("BCA VA", "Mandiri", "BRI", "BNI"),
-    ),
-    PaymentMethodUi(
-        id = "card",
-        title = "Kartu Kredit / Debit",
-        description = "Visa, Mastercard, JCB (3D Secure)",
-        icon = R.drawable.ic_pay_card,
-        iconHeight = 16.492.dp,
     ),
 )
 
@@ -228,7 +215,6 @@ private fun PaymentMethodCardPreview() {
     ScholarHubTheme {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             PaymentMethodCard(SamplePaymentMethods[0], selected = true, onClick = {})
-            PaymentMethodCard(SamplePaymentMethods[1], selected = false, onClick = {})
         }
     }
 }

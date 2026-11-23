@@ -18,90 +18,82 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.scholarhub.R
+import com.example.scholarhub.ui.theme.Base
+import com.example.scholarhub.ui.theme.Navy
 import com.example.scholarhub.ui.theme.NunitoFontFamily
+import com.example.scholarhub.ui.theme.ScholarHubDimens
+import com.example.scholarhub.ui.theme.ShadowHeader
+import androidx.compose.foundation.layout.Box
 
-private val Navy = Color(0xFF001645)
 private val BadgeBg = Color(0xFFCCE5FF)
 private val BadgeText = Color(0xFF001D31)
-private val HeaderBg = Color.White
 
+/**
+ * Header Login/Register (Figma `130:5808`): logo di tengah; lonceng dari Figma sengaja tidak dipakai.
+ * `badgeText` dan `onBack` dipakai profil mentor.
+ */
 @Composable
 fun AuthHeader(
-    badgeText: String,
     modifier: Modifier = Modifier,
+    badgeText: String? = null,
     onBack: (() -> Unit)? = null,
+    /** Tombol lonceng di kanan (Header mentor, Figma `234:11763`); null = slot kosong. */
+    onNotificationClick: (() -> Unit)? = null,
 ) {
-    Box(
+    Row(
         modifier = modifier
             .fillMaxWidth()
-            .shadow(
-                elevation = 8.dp,
-                spotColor = Color(0x38001645),
-                ambientColor = Color(0x20000000),
-            )
-            .background(HeaderBg)
+            .shadow(elevation = 4.dp, ambientColor = ShadowHeader, spotColor = ShadowHeader)
+            .background(Base)
             .statusBarsPadding()
-            .height(56.dp)
-            .padding(horizontal = 16.dp),
+            .height(ScholarHubDimens.headerBarHeight)
+            .padding(horizontal = 24.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        if (onBack != null) {
-            IconButton(
-                onClick = onBack,
-                modifier = Modifier
-                    .align(Alignment.CenterStart)
-                    .size(40.dp),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.detail_back),
-                    contentDescription = "Kembali",
-                    modifier = Modifier.size(16.dp),
-                )
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            if (onBack != null) {
+                IconButton(onClick = onBack) {
+                    Image(
+                        painter = painterResource(R.drawable.detail_back),
+                        contentDescription = "Kembali",
+                        modifier = Modifier.size(16.dp),
+                    )
+                }
             }
         }
 
         Row(
-            modifier = Modifier.align(Alignment.Center),
+            modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center,
+            horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.CenterHorizontally),
         ) {
-            // Circle logo container
             Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .background(Navy, CircleShape),
+                modifier = Modifier.size(28.dp).background(Navy, CircleShape),
                 contentAlignment = Alignment.Center,
             ) {
                 Image(
                     painter = painterResource(R.drawable.ic_scholarhub_logo),
-                    contentDescription = "ScholarHub Logo",
-                    modifier = Modifier.size(width = 13.dp, height = 14.dp),
+                    contentDescription = null,
+                    modifier = Modifier.size(width = 12.75.dp, height = 14.17.dp),
                 )
             }
-
-            Spacer(Modifier.width(8.dp))
-
-            // App Name
             Text(
                 text = "ScholarHub",
                 style = TextStyle(
                     fontFamily = NunitoFontFamily,
                     fontWeight = FontWeight.Bold,
                     fontSize = 19.sp,
+                    lineHeight = 28.5.sp,
                     color = Navy,
                 ),
             )
-
-            Spacer(Modifier.width(8.dp))
-
-            // Badge (LOGIN / REGISTER / MENTOR)
-            Box(
-                modifier = Modifier
-                    .background(BadgeBg, CircleShape)
-                    .padding(horizontal = 6.dp, vertical = 2.dp),
-                contentAlignment = Alignment.Center,
-            ) {
+            if (badgeText != null) {
                 Text(
                     text = badgeText.uppercase(),
+                    modifier = Modifier
+                        .background(BadgeBg, CircleShape)
+                        .padding(horizontal = 6.dp, vertical = 2.dp),
                     style = TextStyle(
                         fontFamily = NunitoFontFamily,
                         fontWeight = FontWeight.Bold,
@@ -111,11 +103,20 @@ fun AuthHeader(
                 )
             }
         }
+
+        // Penyeimbang slot kiri agar logo tetap di tengah; berisi lonceng bila ada.
+        Box(Modifier.size(40.dp), contentAlignment = Alignment.Center) {
+            if (onNotificationClick != null) {
+                IconButton(onClick = onNotificationClick) {
+                    Image(painterResource(R.drawable.ic_home_bell), "Notifikasi", Modifier.size(width = 16.dp, height = 20.dp))
+                }
+            }
+        }
     }
 }
 
 @Preview
 @Composable
 private fun AuthHeaderPreview() {
-    AuthHeader(badgeText = "LOGIN", onBack = {})
+    AuthHeader()
 }

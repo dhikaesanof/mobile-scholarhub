@@ -1,227 +1,203 @@
 package com.example.scholarhub.feature.scholarmatch.components
 
-import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.example.scholarhub.R
 import com.example.scholarhub.ui.theme.ErrorRed
 import com.example.scholarhub.ui.theme.Navy
-import com.example.scholarhub.ui.theme.NavyStrong
 import com.example.scholarhub.ui.theme.Ocean
-import com.example.scholarhub.ui.theme.Outline
-import com.example.scholarhub.ui.theme.OutlineSoft
-import com.example.scholarhub.ui.theme.RadioOutline
-import com.example.scholarhub.ui.theme.ShadowSubtle
-import com.example.scholarhub.ui.theme.SkyFaint
-import com.example.scholarhub.ui.theme.SkySoft
+import com.example.scholarhub.ui.theme.ScholarHubRadius
+import com.example.scholarhub.ui.theme.Sky
 import com.example.scholarhub.ui.theme.SurfaceCard
-import com.example.scholarhub.ui.theme.TextStrong
-import com.example.scholarhub.ui.theme.TextVariant
+import com.example.scholarhub.ui.theme.TextMuted
 import com.example.scholarhub.ui.theme.nunitoSans
 
-// Frame ScholarMatch di-scale ×0.897 secara merata (termasuk font); nilai Figma dipakai apa adanya.
-// Teks Inter dipetakan ke Nunito Sans dengan ukuran yang sama (Inter SemiBold → Bold, lihat Type.kt).
-private val Radius = RoundedCornerShape(10.759.dp)
-internal val Small = nunitoSans(10.759f, 14.346f, FontWeight.Medium)
-internal val SmallBold = nunitoSans(10.759f, 14.346f, FontWeight.Bold)
-internal val Caption = nunitoSans(9.863f, 14.794f, FontWeight.Normal)
-private val ThinBorder = 0.897.dp
-private val ThickBorder = 1.793.dp
+private val Shape = RoundedCornerShape(ScholarHubRadius.md)
+private val FieldBorder = Ocean.copy(alpha = 0.23f)
 
-/** Kartu bagian form (Figma `Section - BAGIAN A..D`): huruf dalam lingkaran navy, judul, deskripsi, garis bawah. */
+/** Body Medium (SemiBold 13): label pertanyaan dan teks pengantar. */
+internal val QuestionText = nunitoSans(13f, 19.5f, FontWeight.SemiBold)
+
+/** Kartu putih radius 16, padding 16, jarak 13 (Figma "Informasi akademik"). */
 @Composable
-fun FormSectionCard(letter: String, title: String, description: String, content: @Composable () -> Unit) {
-    val shape = RoundedCornerShape(14.346.dp)
+fun FormCard(modifier: Modifier = Modifier, gap: Int = 13, padding: Int = 16, content: @Composable () -> Unit) {
     Column(
-        Modifier.fillMaxWidth()
-            .shadow(1.dp, shape, ambientColor = ShadowSubtle, spotColor = ShadowSubtle)
-            .clip(shape)
-            .background(SurfaceCard)
-            .border(ThinBorder, Outline, shape)
-            .padding(18.829.dp),
-        verticalArrangement = Arrangement.spacedBy(14.346.dp),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(7.173.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(21.519.dp).clip(CircleShape).background(NavyStrong), contentAlignment = Alignment.Center) {
-                    Text(letter, style = nunitoSans(10.759f, 14.346f, FontWeight.Bold), color = SurfaceCard)
-                }
-                Text(title, style = nunitoSans(14.346f, 21.519f, FontWeight.Bold), color = Navy)
-            }
-            Text(description, style = nunitoSans(10.759f, 14.346f, FontWeight.Normal), color = TextVariant)
-            Box(Modifier.padding(top = 3.656.dp).fillMaxWidth().height(ThinBorder).background(Outline))
-        }
+        modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(SurfaceCard).padding(padding.dp),
+        verticalArrangement = Arrangement.spacedBy(gap.dp),
+    ) { content() }
+}
+
+/** Pertanyaan + isian dengan jarak 6 (Figma "Di mana kamu kuliah?"). */
+@Composable
+fun Question(label: String, modifier: Modifier = Modifier, content: @Composable () -> Unit) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(label, style = QuestionText, color = Navy)
         content()
     }
 }
 
-/** Satu pertanyaan bernomor. Pertanyaan selain yang pertama punya garis atas #F1F5F9 dan jarak 8. */
+/** "ScholarMatch / Pilihan" dan "Pilihan aktif": tinggi 44, radius 12, Medium 13. */
 @Composable
-fun Question(number: Int, label: String, first: Boolean = false, trailing: (@Composable () -> Unit)? = null, content: @Composable () -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(7.173.dp)) {
-        if (!first) Box(Modifier.fillMaxWidth().height(ThinBorder).background(OutlineSoft))
-        Row(
-            Modifier.fillMaxWidth().padding(top = if (first) 0.dp else 1.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(horizontalArrangement = Arrangement.spacedBy(5.38.dp), verticalAlignment = Alignment.CenterVertically) {
-                Box(Modifier.size(17.932.dp).clip(CircleShape).background(SkySoft), contentAlignment = Alignment.Center) {
-                    Text(number.toString(), style = nunitoSans(9.863f, 14.346f, FontWeight.Bold), color = Ocean)
-                }
-                Text(label, style = SmallBold, color = Navy)
-            }
-            trailing?.invoke()
-        }
-        content()
-    }
-}
-
-/** Tombol pilihan tunggal (Figma `Button`). Terpilih: latar #ECF5FB, border 1.79 #006398, teks Bold + "✓". */
-@Composable
-fun OptionButton(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier, minHeight: Dp = 35.86.dp) {
+fun ChoiceButton(label: String, selected: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
     Box(
         modifier
-            .heightIn(min = minHeight)
-            .clip(Radius)
-            .background(if (selected) SkySoft else SurfaceCard)
-            .border(if (selected) ThickBorder else ThinBorder, if (selected) Ocean else Outline, Radius)
-            .selectable(selected, role = Role.RadioButton, onClick = onClick)
-            .padding(horizontal = 8.dp, vertical = 7.dp),
+            .height(44.dp)
+            .clip(Shape)
+            .background(if (selected) Navy else SurfaceCard)
+            .then(if (selected) Modifier else Modifier.border(1.dp, FieldBorder, Shape))
+            .selectable(selected = selected, role = Role.RadioButton, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = if (selected) "$label ✓" else label,
-            style = if (selected) SmallBold else Small,
-            color = if (selected) Ocean else TextStrong,
-            textAlign = TextAlign.Center,
-        )
+        Text(label, style = MaterialTheme.typography.labelLarge, color = if (selected) SurfaceCard else Navy)
     }
 }
 
-/** Baris radio (Figma pertanyaan 7): radio 14.35 di kanan. */
+/** Pilihan Ya/Tidak dua kolom dengan jarak 8. */
 @Composable
-fun RadioRow(label: String, selected: Boolean, onClick: () -> Unit) {
-    Row(
-        Modifier.fillMaxWidth()
-            .clip(Radius)
-            .background(if (selected) SkySoft else SkyFaint)
-            .border(if (selected) ThickBorder else ThinBorder, if (selected) Ocean else Outline, Radius)
-            .selectable(selected, role = Role.RadioButton, onClick = onClick)
-            .padding(12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(label, modifier = Modifier.weight(1f), style = if (selected) SmallBold else Small, color = if (selected) Ocean else TextStrong)
-        Box(
-            Modifier.size(14.346.dp).clip(CircleShape).background(SurfaceCard)
-                .border(ThinBorder, if (selected) Navy else RadioOutline, CircleShape),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (selected) Box(Modifier.size(8.608.dp).clip(CircleShape).background(Navy))
-        }
+fun YesNo(value: Boolean?, onChange: (Boolean) -> Unit) {
+    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        ChoiceButton("Ya", value == true, { onChange(true) }, Modifier.weight(1f))
+        ChoiceButton("Tidak", value == false, { onChange(false) }, Modifier.weight(1f))
     }
 }
 
-/** Kartu checkbox prioritas (Figma pertanyaan 13). [enabled] false saat batas 5 prioritas sudah tercapai. */
-@Composable
-fun CheckboxCard(title: String, checked: Boolean, enabled: Boolean, onToggle: () -> Unit, description: String? = null) {
-    Row(
-        Modifier.fillMaxWidth()
-            .alpha(if (enabled || checked) 1f else 0.5f)
-            .clip(Radius)
-            .background(if (checked) SkySoft else SkyFaint)
-            .border(if (checked) ThickBorder else ThinBorder, if (checked) Ocean else Outline, Radius)
-            .toggleable(checked, enabled = enabled || checked, role = Role.Checkbox, onValueChange = { onToggle() })
-            .padding(14.dp),
-        horizontalArrangement = Arrangement.spacedBy(10.759.dp),
-    ) {
-        Box(
-            Modifier.padding(top = 1.793.dp).size(14.346.dp).clip(RoundedCornerShape(2.242.dp))
-                .background(if (checked) Navy else SurfaceCard)
-                .then(if (checked) Modifier else Modifier.border(ThinBorder, RadioOutline, RoundedCornerShape(2.242.dp))),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (checked) Text("✓", style = nunitoSans(9f, 12f, FontWeight.Bold), color = SurfaceCard)
-        }
-        Column(Modifier.weight(1f)) {
-            Text(title, style = SmallBold, color = if (checked) Ocean else Navy)
-            description?.let { Text(it, modifier = Modifier.padding(top = 1.793.dp), style = Caption, color = TextVariant) }
-        }
-    }
-}
-
-/** Input teks (Figma `Input`): latar #F4FAFF, border #E2E8F0, tinggi 39.45, ikon kiri dan/atau akhiran kanan. */
+/** "ScholarMatch / Isian": tinggi 44, border #006398 23%, teks Medium 13; placeholder abu. */
 @Composable
 fun FormTextField(
     value: String,
     onValueChange: (String) -> Unit,
     placeholder: String,
     modifier: Modifier = Modifier,
-    @DrawableRes leadingIcon: Int? = null,
-    leadingWidth: Dp = 16.dp,
-    leadingHeight: Dp = 16.dp,
-    suffix: String? = null,
     keyboardType: KeyboardType = KeyboardType.Text,
-    textStyle: TextStyle = nunitoSans(10.759f, 14.346f, FontWeight.Bold),
+    enabled: Boolean = true,
     error: String? = null,
 ) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        Box(
-            Modifier.fillMaxWidth().height(39.451.dp).clip(Radius).background(SkyFaint)
-                .border(ThinBorder, if (error != null) ErrorRed else Outline, Radius),
-            contentAlignment = Alignment.CenterStart,
-        ) {
-            leadingIcon?.let {
-                Image(painterResource(it), null, Modifier.padding(start = 12.55.dp).size(leadingWidth, leadingHeight))
-            }
-            BasicTextField(
-                value = value,
-                onValueChange = onValueChange,
-                singleLine = true,
-                textStyle = textStyle.copy(color = Navy),
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                modifier = Modifier.fillMaxWidth().padding(start = if (leadingIcon != null) 36.762.dp else 13.45.dp, end = 80.dp),
-                decorationBox = { inner ->
-                    if (value.isEmpty()) Text(placeholder, style = textStyle.copy(fontWeight = FontWeight.Medium), color = TextVariant.copy(alpha = 0.7f))
+        BasicTextField(
+            value = value,
+            onValueChange = onValueChange,
+            enabled = enabled,
+            singleLine = true,
+            textStyle = MaterialTheme.typography.labelLarge.copy(color = Navy),
+            cursorBrush = SolidColor(Navy),
+            keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
+            modifier = Modifier.fillMaxWidth().height(44.dp).clip(Shape).background(SurfaceCard)
+                .border(1.dp, if (error != null) ErrorRed else FieldBorder, Shape)
+                .alpha(if (enabled) 1f else 0.5f),
+            decorationBox = { inner ->
+                Box(Modifier.padding(horizontal = 12.dp), contentAlignment = Alignment.CenterStart) {
+                    if (value.isEmpty()) Text(placeholder, style = MaterialTheme.typography.labelLarge, color = TextMuted)
                     inner()
-                },
-            )
-            suffix?.let {
-                Text(it, modifier = Modifier.align(Alignment.CenterEnd).padding(end = 12.55.dp), style = SmallBold, color = TextVariant)
-            }
-        }
-        error?.let { Text(it, style = Caption, color = ErrorRed) }
+                }
+            },
+        )
+        error?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = ErrorRed) }
     }
 }
 
+/** Isian pilihan dengan chevron (Figma "Universitas Gadjah Mada"); membuka daftar [options]. */
+@Composable
+fun FormDropdown(
+    value: String?,
+    placeholder: String,
+    options: List<String>,
+    onSelect: (String) -> Unit,
+    modifier: Modifier = Modifier,
+    showChevron: Boolean = true,
+) {
+    var open by remember { mutableStateOf(false) }
+    Box(modifier) {
+        Row(
+            Modifier.fillMaxWidth().height(44.dp).clip(Shape).background(SurfaceCard).border(1.dp, FieldBorder, Shape)
+                .clickable(role = Role.DropdownList) { open = true }.padding(horizontal = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                value ?: placeholder,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (value == null) TextMuted else Navy,
+                maxLines = 1,
+            )
+            if (showChevron) Image(painterResource(R.drawable.ic_match_chevron_down), null, Modifier.size(10.dp, 20.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option, style = MaterialTheme.typography.labelLarge, color = Navy) },
+                    onClick = {
+                        onSelect(option)
+                        open = false
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** "ScholarMatch / Prioritas" (terpilih: latar #D9EEFB, kotak #006398): tinggi 42, kotak 17 radius 4. */
+@Composable
+fun CheckRow(label: String, checked: Boolean, onToggle: () -> Unit, enabled: Boolean = true) {
+    val boxShape = RoundedCornerShape(4.dp)
+    Row(
+        Modifier.fillMaxWidth().height(42.dp).clip(Shape).background(if (checked) Sky else SurfaceCard)
+            .toggleable(value = checked, enabled = enabled || checked, role = Role.Checkbox, onValueChange = { onToggle() })
+            .padding(horizontal = 12.dp)
+            .alpha(if (enabled || checked) 1f else 0.5f),
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            Modifier.size(17.dp).clip(boxShape).background(if (checked) Ocean else SurfaceCard)
+                .border(1.dp, if (checked) Ocean else Ocean.copy(alpha = 0.52f), boxShape),
+        )
+        Text(label, style = QuestionText, color = Navy)
+    }
+}
+
+/** "ScholarMatch / Tombol utama": navy tinggi 48; nonaktif opacity 40%. */
+@Composable
+fun MainButton(label: String, enabled: Boolean, onClick: () -> Unit, modifier: Modifier = Modifier) {
+    Box(
+        modifier.fillMaxWidth().height(48.dp).alpha(if (enabled) 1f else 0.4f).clip(Shape).background(Navy)
+            .clickable(enabled = enabled, role = Role.Button, onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(label, style = MaterialTheme.typography.labelLarge, color = SurfaceCard)
+    }
+}

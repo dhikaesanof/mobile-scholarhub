@@ -44,7 +44,8 @@ private val NotificationRing = androidx.compose.ui.graphics.Color(0xFFFBF9F8)
 @Composable
 fun ScholarHubTopBar(
     modifier: Modifier = Modifier,
-    hasUnreadNotification: Boolean = true,
+    // Figma `Header` tidak menampilkan titik merah; aktifkan bila ada sumber notifikasi belum dibaca.
+    hasUnreadNotification: Boolean = false,
     onArticleClick: () -> Unit = {},
     onNotificationClick: () -> Unit = {},
     onBookmarkClick: () -> Unit = {},
@@ -114,8 +115,8 @@ fun ScholarHubTopBar(
             HeaderIconButton(onClick = onBookmarkClick) {
                 // Aset Figma sudah berukuran penuh 40 × 40 termasuk ruang kosongnya.
                 Image(
-                    painter = painterResource(R.drawable.ic_home_bookmark),
-                    contentDescription = "Bookmark",
+                    painter = painterResource(R.drawable.ic_home_favorite),
+                    contentDescription = "Favorit",
                     modifier = Modifier.size(ScholarHubDimens.iconButton),
                 )
             }

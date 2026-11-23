@@ -2,192 +2,220 @@ package com.example.scholarhub.feature.mentoring
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.example.scholarhub.R
 import com.example.scholarhub.feature.mentoring.components.BookingDayUi
 import com.example.scholarhub.feature.mentoring.components.DayChip
 import com.example.scholarhub.feature.mentoring.components.MentorProfileCard
-import com.example.scholarhub.feature.mentoring.components.MentorProfileUi
-import com.example.scholarhub.feature.mentoring.components.SampleMentorProfile
+import com.example.scholarhub.feature.mentoring.components.MentorProfiles
 import com.example.scholarhub.feature.mentoring.components.TimeSlotItem
 import com.example.scholarhub.feature.mentoring.components.TimeSlotUi
 import com.example.scholarhub.ui.components.PrimaryButton
 import com.example.scholarhub.ui.components.ScholarHubDetailTopBar
-import com.example.scholarhub.ui.components.SectionHeader
 import com.example.scholarhub.ui.theme.Base
 import com.example.scholarhub.ui.theme.Navy
 import com.example.scholarhub.ui.theme.Ocean
 import com.example.scholarhub.ui.theme.OutlineSky
-import com.example.scholarhub.ui.theme.ScholarHubTheme
+import com.example.scholarhub.ui.theme.ScholarHubRadius
 import com.example.scholarhub.ui.theme.ShadowNavy
+import com.example.scholarhub.ui.theme.SkySoft
+import com.example.scholarhub.ui.theme.Steel
 import com.example.scholarhub.ui.theme.TextMuted
+import com.example.scholarhub.ui.theme.nunitoSans
+import java.time.LocalDate
+import java.time.LocalDateTime
+import java.time.LocalTime
+import java.time.format.DateTimeFormatter
+import java.time.format.TextStyle
+import java.util.Locale
 
-/** Isi Detail Mentor. Masih contoh statis sampai data jadwal mentor tersedia. */
-data class MentorDetailUiState(
-    val profile: MentorProfileUi,
-    val monthLabel: String,
-    val monthShort: String,
-    val days: List<BookingDayUi>,
-    val slots: List<TimeSlotUi>,
-    val price: String,
+private val Indonesian = Locale.forLanguageTag("id-ID")
+const val SessionPrice = 50_000
+val MentoringTopics = listOf("Review Esai Beasiswa", "Simulasi Wawancara", "Strategi Persiapan Beasiswa")
+
+/** Pesanan yang belum dibayar, diteruskan ke layar pembayaran. */
+data class BookingDraft(
+    val mentor: SessionPerson,
+    val topic: String,
+    val start: LocalDateTime,
+    val end: LocalDateTime,
+    val price: Int,
 )
 
-val SampleMentorDetailUiState = MentorDetailUiState(
-    profile = SampleMentorProfile,
-    monthLabel = "Oktober 2026",
-    monthShort = "Okt",
-    days = listOf(
-        BookingDayUi("Sen", "Senin", 19), BookingDayUi("Sel", "Selasa", 20), BookingDayUi("Rab", "Rabu", 21),
-        BookingDayUi("Kam", "Kamis", 22), BookingDayUi("Jum", "Jumat", 23), BookingDayUi("Sab", "Sabtu", 24),
-        BookingDayUi("Min", "Minggu", 25),
-    ),
-    slots = listOf(
-        TimeSlotUi("10:00 - 10:59 WIB"),
-        TimeSlotUi("11:00 - 11:59 WIB"),
-        TimeSlotUi("12:00 - 12:59 WIB"),
-        TimeSlotUi("13:00 - 13:59 WIB", booked = true),
-    ),
-    price = "Rp 50.000",
-)
+/** Orang di kartu sesi untuk mentor [id] dari daftar mentor. */
+fun mentorPerson(id: String): SessionPerson {
+    val profile = MentorProfiles.firstOrNull { it.id == id } ?: MentorProfiles.first()
+    return SessionPerson(profile.id, profile.name, profile.affiliation, profile.photo)
+}
 
-private fun defaultSlotIndex(slots: List<TimeSlotUi>): Int =
-    if (slots.getOrNull(1)?.booked == false) 1 else slots.indexOfFirst { !it.booked }
-
-/** Ringkasan pilihan yang diteruskan ke layar pembayaran. */
-data class BookingSelection(
-    val mentorId: String,
-    val mentorName: String,
-    val mentorAffiliation: String,
-    val day: BookingDayUi,
-    val slot: TimeSlotUi,
-    /** Format pendek untuk bar bawah, misalnya "Sel, 20 Okt • 11:00 - 11:59 WIB". */
-    val summary: String,
-    /** Format panjang untuk ringkasan pembayaran, misalnya "Selasa, 20 Oktober 2026 • 11:00 - 11:59 WIB". */
-    val fullSchedule: String,
-    val price: String,
-)
-
-/** Detail Mentor (Figma 846:4798): profil mentor, pilih tanggal + jam, lalu "Lanjut Bayar". */
+/**
+ * Detail Mentor (Figma `209:5537`): profil, topik yang ingin dibahas, tanggal 7 hari ke depan, jam sesi, lalu
+ * "Konfirmasi Booking". Jam yang sudah dipesan (termasuk pesananmu di [store]) tidak bisa dipilih.
+ */
 @Composable
 fun MentorDetailScreen(
-    state: MentorDetailUiState = SampleMentorDetailUiState,
-    onBack: () -> Unit = {},
-    onContinueToPayment: (BookingSelection) -> Unit = {},
+    mentorId: String,
+    store: MentoringStore,
+    onBack: () -> Unit,
+    onConfirmBooking: (BookingDraft) -> Unit,
 ) {
-    // Default mengikuti Figma: Sel 20 dan 11:00 terpilih.
-    var dayIndex by rememberSaveable { mutableIntStateOf(1.coerceAtMost(state.days.lastIndex)) }
-    var slotIndex by rememberSaveable { mutableIntStateOf(defaultSlotIndex(state.slots)) }
-    val day = state.days.getOrNull(dayIndex)
-    val slot = state.slots.getOrNull(slotIndex)?.takeUnless { it.booked }
-    val summary = if (day != null && slot != null) "${day.dayShort}, ${day.date} ${state.monthShort} • ${slot.label}" else null
+    val profile = MentorProfiles.firstOrNull { it.id == mentorId } ?: MentorProfiles.first()
+    val bookings by store.bookings.collectAsState()
+    val openSlots by store.openSlots.collectAsState()
+    val today = remember { store.now().toLocalDate() }
+    val days = remember(today) { (1..7).map { today.plusDays(it.toLong()) } }
+    var dayIndex by rememberSaveable { mutableIntStateOf(0) }
+    var slotIndex by rememberSaveable { mutableIntStateOf(-1) }
+    var topic by rememberSaveable { mutableStateOf(MentoringTopics.first()) }
+    val day = days[dayIndex]
+    val now = store.now()
+    // Slot yang dibuka mentor di tanggal ini; yang sudah dipesan tampil "Terpesan".
+    val free = freeSlots(profile.id, day, bookings, openSlots, now)
+    val dayStarts = openSlots.filter { it.mentorId == profile.id && it.start.toLocalDate() == day && it.start.isAfter(now) }.map { it.start }.sorted()
+    val slots = dayStarts.map { start ->
+        TimeSlotUi("${start.format(TimeFormat)} - ${start.plusMinutes(59).format(TimeFormat)} WIB", booked = start !in free)
+    }
+    val chosenStart = dayStarts.getOrNull(slotIndex)?.takeIf { it in free }
+    val draft = chosenStart?.let { BookingDraft(mentorPerson(profile.id), topic, it, it.plusMinutes(59), SessionPrice) }
 
     Scaffold(
         containerColor = Base,
         topBar = { ScholarHubDetailTopBar(title = "Detail Mentor", onBack = onBack) },
         bottomBar = {
             BookingSummaryBar(
-                price = state.price,
-                summary = summary ?: "Pilih tanggal dan jam sesi",
-                enabled = summary != null,
-                onContinue = {
-                    if (day != null && slot != null && summary != null) {
-                        onContinueToPayment(
-                            BookingSelection(
-                                mentorId = state.profile.id,
-                                mentorName = state.profile.name,
-                                mentorAffiliation = state.profile.affiliation,
-                                day = day,
-                                slot = slot,
-                                summary = summary,
-                                fullSchedule = "${day.dayFull}, ${day.date} ${state.monthLabel} • ${slot.label}",
-                                price = state.price,
-                            ),
-                        )
-                    }
-                },
+                price = rupiah(SessionPrice),
+                summary = draft?.let { "${it.start.format(ShortDay)} • ${it.start.format(TimeFormat)}–${it.end.format(TimeFormat)} WIB" }
+                    ?: "Pilih tanggal dan jam sesi",
+                enabled = draft != null,
+                onContinue = { draft?.let(onConfirmBooking) },
             )
         },
     ) { padding ->
-        // Figma: konten 369 dp di x=16, kartu profil 12 dp di bawah header, jarak ke booking 24.
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .verticalScroll(rememberScrollState())
-                .padding(start = 16.dp, end = 17.dp, top = 12.dp, bottom = 24.dp),
+            modifier = Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
-            MentorProfileCard(profile = state.profile)
+            MentorProfileCard(profile = profile)
 
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                SectionHeader(title = "Booking Mentor", titleStartPadding = 0.dp)
-
+                Text("Booking Sesi Mentoring", style = MaterialTheme.typography.titleMedium, color = Navy)
+                Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    Text("Apa yang ingin kamu diskusikan?", style = MaterialTheme.typography.bodyLarge, color = Navy)
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TopicDropdown(topic) { topic = it }
+                        Text(
+                            "Tulis kebutuhanmu agar mentor dapat menyiapkan sesi.",
+                            style = nunitoSans(11f, 16.5f, FontWeight.Normal),
+                            color = Steel,
+                        )
+                    }
+                }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(text = "Pilih Tanggal Sesi", style = MaterialTheme.typography.bodyLarge, color = Navy)
+                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Pilih Sesi", style = MaterialTheme.typography.bodyLarge, color = Navy)
                         Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Image(
-                                painter = painterResource(R.drawable.ic_calendar_month),
-                                contentDescription = null,
-                                modifier = Modifier.size(width = 12.dp, height = 13.333.dp),
-                            )
-                            Text(text = state.monthLabel, style = MaterialTheme.typography.bodyLarge, color = Ocean)
+                            Image(painterResource(R.drawable.ic_calendar_month), null, Modifier.size(12.dp, 13.333.dp))
+                            Text(day.format(MonthFormat), style = MaterialTheme.typography.bodyLarge, color = Ocean)
                         }
                     }
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(vertical = 4.dp),
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(vertical = 4.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        state.days.forEachIndexed { index, item ->
-                            DayChip(day = item, selected = index == dayIndex, onClick = { dayIndex = index })
+                        days.forEachIndexed { index, date ->
+                            DayChip(day = date.toChip(), selected = index == dayIndex, onClick = {
+                                dayIndex = index
+                                slotIndex = -1
+                            })
                         }
                     }
                 }
-
-                Column(
-                    modifier = Modifier.padding(bottom = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    state.slots.forEachIndexed { index, item ->
-                        TimeSlotItem(slot = item, selected = index == slotIndex, onClick = { slotIndex = index })
+                Column(Modifier.padding(bottom = 8.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    if (slots.isEmpty()) {
+                        Text("Mentor belum membuka slot di tanggal ini.", style = MaterialTheme.typography.bodyMedium, color = Navy)
+                    }
+                    slots.forEachIndexed { index, slot ->
+                        TimeSlotItem(slot = slot, selected = index == slotIndex, onClick = { if (!slot.booked) slotIndex = index })
                     }
                 }
+            }
+        }
+    }
+}
+
+private val TimeFormat = DateTimeFormatter.ofPattern("HH:mm")
+private val ShortDay = DateTimeFormatter.ofPattern("EEE, d MMM", Indonesian)
+private val MonthFormat = DateTimeFormatter.ofPattern("MMMM yyyy", Indonesian)
+
+private fun LocalDate.toChip() = BookingDayUi(
+    dayShort = dayOfWeek.getDisplayName(TextStyle.SHORT, Indonesian).take(3),
+    dayFull = dayOfWeek.getDisplayName(TextStyle.FULL, Indonesian),
+    date = dayOfMonth,
+)
+
+/** Pilihan topik (Figma `Profil / Kolom formulir`): latar #ECF5FB, border #006398, tinggi 44. */
+@Composable
+private fun TopicDropdown(value: String, onSelect: (String) -> Unit) {
+    var open by remember { mutableStateOf(false) }
+    val shape = RoundedCornerShape(ScholarHubRadius.md)
+    Box {
+        Row(
+            Modifier.fillMaxWidth().height(44.dp).clip(shape).background(SkySoft).border(1.dp, Ocean, shape)
+                .clickable(role = Role.DropdownList) { open = true }.padding(horizontal = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(value, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, color = Navy)
+            Image(painterResource(R.drawable.ic_report_down), null, Modifier.size(20.dp))
+        }
+        DropdownMenu(expanded = open, onDismissRequest = { open = false }) {
+            MentoringTopics.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option, style = MaterialTheme.typography.labelLarge, color = Navy) },
+                    onClick = {
+                        onSelect(option)
+                        open = false
+                    },
+                )
             }
         }
     }
@@ -195,45 +223,30 @@ fun MentorDetailScreen(
 
 /**
  * Bar bawah sticky (Figma `Floating Sticky Bottom Bar CTA`): latar #F1F1F1, garis atas #E6EFF5,
- * shadow ke atas navy 8%. Tombol mengisi sisa lebar (maks 217) setelah ringkasan + jarak 61.
+ * shadow ke atas navy 8%, ringkasan biaya dan jadwal, tombol "Konfirmasi Booking".
  */
 @Composable
 private fun BookingSummaryBar(price: String, summary: String, enabled: Boolean, onContinue: () -> Unit) {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 10.dp, ambientColor = ShadowNavy, spotColor = ShadowNavy)
-            .background(Base),
-    ) {
+    Column(Modifier.fillMaxWidth().shadow(elevation = 10.dp, ambientColor = ShadowNavy, spotColor = ShadowNavy).background(Base)) {
         HorizontalDivider(color = OutlineSky, thickness = 1.03.dp)
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .navigationBarsPadding()
-                .padding(horizontal = 17.dp, vertical = 18.dp),
-            horizontalArrangement = Arrangement.spacedBy(61.dp),
+            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 17.dp, vertical = 18.dp),
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column {
-                Text(text = "Total Biaya Sesi", style = MaterialTheme.typography.bodyLarge, color = TextMuted)
-                Text(text = price, style = MaterialTheme.typography.titleMedium, color = Navy)
-                Text(text = summary, style = MaterialTheme.typography.labelLarge, color = Ocean)
+            Column(Modifier.weight(1f)) {
+                Text("Total Biaya Sesi", style = MaterialTheme.typography.bodyLarge, color = TextMuted)
+                Text(price, style = MaterialTheme.typography.titleMedium, color = Navy)
+                Text(summary, style = MaterialTheme.typography.labelLarge, color = Ocean)
             }
             PrimaryButton(
-                text = "Lanjut Bayar",
+                text = "Konfirmasi Booking",
                 onClick = { if (enabled) onContinue() },
-                modifier = Modifier.weight(1f).widthIn(max = 217.dp),
                 containerColor = if (enabled) Navy else TextMuted,
                 solidShadow = null,
-                contentPadding = PaddingValues(8.dp),
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
                 textStyle = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
             )
         }
     }
-}
-
-@Preview(widthDp = 402, heightDp = 1234)
-@Composable
-private fun MentorDetailScreenPreview() {
-    ScholarHubTheme { MentorDetailScreen() }
 }

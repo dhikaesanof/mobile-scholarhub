@@ -35,54 +35,6 @@ import com.example.scholarhub.ui.theme.TextVariant
 import com.example.scholarhub.ui.theme.InterSemiBold
 import com.example.scholarhub.ui.theme.nunitoSans
 
-/**
- * Chip filter riwayat dengan angka opsional (Figma Riwayat Transaksi). Aktif: #0F2A66 teks putih,
- * badge putih 20%. Tidak aktif: #E6EFF5 teks #444650, badge #DBE4EA. [dotColor] menampilkan titik status.
- */
-@Composable
-fun CountFilterChip(
-    label: String,
-    selected: Boolean,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    count: Int? = null,
-    dotColor: Color? = null,
-) {
-    val content = if (selected) Color.White else TextVariant
-    Row(
-        modifier = modifier
-            .then(
-                if (selected) {
-                    Modifier.shadow(1.dp, PillShape, ambientColor = ShadowSubtle, spotColor = ShadowSubtle)
-                } else {
-                    Modifier
-                },
-            )
-            .clip(PillShape)
-            .background(if (selected) NavyStrong else OutlineSky)
-            .clickable(role = Role.Tab, onClick = onClick)
-            .padding(horizontal = 14.431.dp, vertical = 6.185.dp),
-        horizontalArrangement = Arrangement.spacedBy(6.185.dp),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(text = label, style = nunitoSans(12.369f, 16.492f, InterSemiBold, tracking = 0.2474f), color = content)
-        if (dotColor != null) {
-            Box(Modifier.size(8.246.dp).clip(CircleShape).background(dotColor))
-        }
-        if (count != null) {
-            Text(
-                text = count.toString(),
-                modifier = Modifier
-                    .clip(PillShape)
-                    .background(if (selected) Color.White.copy(alpha = 0.2f) else OutlineCool)
-                    .padding(horizontal = 6.185.dp),
-                style = nunitoSans(10.308f, 16.492f, InterSemiBold, tracking = 0.2474f),
-                color = content,
-            )
-        }
-    }
-}
-
 /** Penanda akhir daftar: garis pendek + ikon centang + teks abu 70% (Figma `End of Feed Signature`). */
 @Composable
 fun EndOfFeed(text: String, modifier: Modifier = Modifier) {
@@ -117,10 +69,6 @@ fun EndOfFeed(text: String, modifier: Modifier = Modifier) {
 private fun FeedComponentsPreview() {
     ScholarHubTheme {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                CountFilterChip("Semua", selected = true, onClick = {}, count = 5)
-                CountFilterChip("Menunggu", selected = false, onClick = {}, count = 1, dotColor = Color(0xFFF59E0B))
-            }
             EndOfFeed("Semua riwayat pembayaran telah dimuat")
         }
     }

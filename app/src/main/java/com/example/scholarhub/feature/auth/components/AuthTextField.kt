@@ -27,8 +27,8 @@ import androidx.compose.ui.unit.sp
 import com.example.scholarhub.ui.theme.NunitoFontFamily
 
 private val FieldBg = Color(0xFFECF5FB)
-private val TextDark = Color(0xFF141D21)
-private val PlaceholderColor = Color(0xFF757681)
+private val TextDark = Color(0xFF001645)
+private val PlaceholderColor = Color(0xFF001645) // Figma: placeholder #001645, sama dengan teks isian
 private val IconTint = Color(0xFF757681)
 
 @Composable

@@ -120,162 +120,6 @@ fun StatTile(stat: StatUi, modifier: Modifier = Modifier) {
     }
 }
 
-// ---------- Tracker & Reminder ----------
-
-@Immutable
-data class ChecklistItemUi(val text: String, val done: Boolean)
-
-@Immutable
-data class TrackerUi(
-    val scholarshipName: String,
-    val daysLeft: String,
-    val closingDate: String,
-    /** 0..1; Figma: 67.28% terisi dengan label "66% Selesai". */
-    val progress: Float,
-    val progressLabel: String,
-    val checklist: List<ChecklistItemUi>,
-    val nextStep: String,
-)
-
-/** Kartu "Progress Roadmap" (Figma `Section - Progress Roadmap Card`): border #E0E9EF, radius 16, padding 17. */
-@Composable
-fun ProgressRoadmapCard(tracker: TrackerUi, onScholarshipClick: () -> Unit, modifier: Modifier = Modifier) {
-    val shape = RoundedCornerShape(16.dp)
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .cardSurface(shape = shape)
-            .border(1.dp, OutlineMist, shape)
-            .padding(17.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-    ) {
-        Text(
-            text = "PROGRESS ROADMAP",
-            style = nunitoSans(12f, 16.5f, FontWeight.Bold, tracking = 0.55f),
-            color = TextVariant,
-        )
-
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            val dropdownShape = RoundedCornerShape(10.759.dp)
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(dropdownShape)
-                    .background(SurfaceCard)
-                    .border(0.897.dp, Ocean, dropdownShape)
-                    .clickable(onClick = onScholarshipClick)
-                    .padding(12.897.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Text(
-                    text = tracker.scholarshipName,
-                    modifier = Modifier.weight(1f),
-                    style = nunitoSans(16f, 22f, FontWeight.ExtraBold),
-                    color = Navy,
-                )
-                Image(
-                    painter = painterResource(R.drawable.ic_profile_dropdown),
-                    contentDescription = "Pilih beasiswa",
-                    modifier = Modifier.padding(end = 0.9.dp).size(width = 10.308.dp, height = 6.356.dp),
-                )
-            }
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_profile_deadline),
-                        contentDescription = null,
-                        modifier = Modifier.size(width = 17.dp, height = 16.dp),
-                    )
-                    Text(text = tracker.daysLeft, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
-                }
-                Text(
-                    text = tracker.closingDate,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Ocean,
-                    textAlign = TextAlign.End,
-                )
-            }
-        }
-
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Box(modifier = Modifier.fillMaxWidth().height(16.dp).clip(PillShape).background(OutlineMist)) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight()
-                        .fillMaxWidth(tracker.progress.coerceIn(0f, 1f))
-                        .clip(PillShape)
-                        .background(Ocean),
-                )
-            }
-            Text(
-                text = tracker.progressLabel,
-                modifier = Modifier.fillMaxWidth(),
-                style = nunitoSans(11f, 16.5f, FontWeight.Bold),
-                color = Navy,
-                textAlign = TextAlign.End,
-            )
-        }
-
-        tracker.checklist.forEachIndexed { index, item ->
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clip(Radius12)
-                    .background(SkySoft)
-                    .border(1.dp, OutlineSky.copy(alpha = 0.6f), Radius12)
-                    .padding(13.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Image(
-                    painter = painterResource(if (item.done) R.drawable.ic_profile_check_done else R.drawable.ic_profile_check_todo),
-                    contentDescription = if (item.done) "Selesai" else "Belum selesai",
-                    modifier = Modifier.size(width = 16.667.dp, height = 18.667.dp),
-                )
-                // Figma: item pertama #141D21, sisanya #001645.
-                Text(
-                    text = item.text,
-                    modifier = Modifier.weight(1f),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = if (index == 0) TextStrong else Navy,
-                )
-            }
-        }
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(Radius12)
-                .background(SkySoft)
-                .border(1.dp, SkyBorder.copy(alpha = 0.8f), Radius12)
-                .padding(13.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Box(
-                modifier = Modifier.size(32.dp).clip(Radius8).background(SurfaceCard).border(1.dp, SkyBorder, Radius8),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_profile_nextstep),
-                    contentDescription = null,
-                    modifier = Modifier.size(width = 13.5.dp, height = 14.4.dp),
-                )
-            }
-            Column(modifier = Modifier.weight(1f)) {
-                Text(text = "LANGKAH BERIKUTNYA", style = MaterialTheme.typography.bodyMedium, color = TextVariant)
-                Text(
-                    text = tracker.nextStep,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = Navy,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-            }
-        }
-    }
-}
-
 // ---------- Prestasi ----------
 
 @Immutable
@@ -359,59 +203,9 @@ fun AddPillButton(onClick: () -> Unit) {
 
 // ---------- Akun & Preferensi ----------
 
-@Immutable
-data class SettingsRowUi(
-    val id: String,
-    val title: String,
-    val subtitle: String,
-    @DrawableRes val icon: Int,
-    val iconWidth: Dp,
-    val iconHeight: Dp,
-    val badge: Int? = null,
-)
-
-/** Baris pengaturan 60 dp: ikon 36 dalam lingkaran #ECF5FB, judul + subjudul, badge opsional, chevron. */
-@Composable
-fun SettingsRow(row: SettingsRowUi, onClick: () -> Unit, modifier: Modifier = Modifier) {
-    Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .clip(Radius8)
-            .clickable(onClick = onClick)
-            .padding(8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(modifier = Modifier.size(36.dp).clip(CircleShape).background(SkySoft), contentAlignment = Alignment.Center) {
-                Image(painter = painterResource(row.icon), contentDescription = null, modifier = Modifier.size(row.iconWidth, row.iconHeight))
-            }
-            Column(modifier = Modifier.padding(bottom = 2.5.dp), verticalArrangement = Arrangement.spacedBy(5.5.dp)) {
-                Text(text = row.title, style = RowTitle, color = Navy)
-                Text(text = row.subtitle, style = RowSubtitle, color = TextVariant)
-            }
-        }
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            row.badge?.let {
-                Box(
-                    modifier = Modifier.padding(end = 15.dp).size(24.dp).clip(CircleShape).background(OutlineMist),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Text(text = it.toString(), style = CaptionBold, color = Navy)
-                }
-            }
-            Image(
-                painter = painterResource(R.drawable.ic_profile_chevron),
-                contentDescription = null,
-                modifier = Modifier.size(width = 6.167.dp, height = 10.dp),
-            )
-        }
-    }
-}
-
 /** Tombol "Keluar dari Akun" (Figma: pill #E6EFF5 tinggi 49, ikon + teks merah). */
 @Composable
-fun LogoutButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
+fun LogoutButton(onClick: () -> Unit, modifier: Modifier = Modifier, label: String = "Keluar dari Akun") {
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -424,7 +218,7 @@ fun LogoutButton(onClick: () -> Unit, modifier: Modifier = Modifier) {
     ) {
         Image(painter = painterResource(R.drawable.ic_profile_logout), contentDescription = null, modifier = Modifier.size(15.462.dp))
         Text(
-            text = "Keluar dari Akun",
+            text = label,
             style = nunitoSans(14.431f, 20.615f, InterSemiBold, tracking = 0.1443f),
             color = ErrorRed,
         )

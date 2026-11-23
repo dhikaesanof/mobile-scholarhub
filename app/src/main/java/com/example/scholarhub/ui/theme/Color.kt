@@ -21,6 +21,7 @@ val Sky = Color(0xFFD9EEFB) // Figma var: Accents
 val SkySoft = Color(0xFFECF5FB)
 val SkyFaint = Color(0xFFF4FAFF)
 val SkyBorder = Color(0xFFCCE5FF)
+val SkySubtle = Color(0xFFEDF4FA) // Figma var: color/subtle, chip filter aktif
 
 // Permukaan
 val Base = Color(0xFFF1F1F1) // Figma var: Base
@@ -39,6 +40,7 @@ val Slate900 = Color(0xFF0F172A)
 val Slate800 = Color(0xFF1E293B)
 val Slate600 = Color(0xFF475569)
 val Slate500 = Color(0xFF64748B)
+val Steel = Color(0xFF506076) // Figma var: color/secondary, border opsi & handle bottom sheet
 
 // Garis
 val Outline = Color(0xFFE2E8F0)

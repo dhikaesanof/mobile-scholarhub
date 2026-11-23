@@ -20,7 +20,7 @@ class MainActivity : ComponentActivity() {
         // (pintu masuknya dari Profil belum dibuat).
         val initialDestination = when {
             intent.hasExtra("scholarshipId") ->
-                AppDestination.ScholarshipDetail(intent.getStringExtra("scholarshipId") ?: "SH28")
+                AppDestination.ScholarshipDetail(intent.getStringExtra("scholarshipId") ?: "DM01")
             intent.getStringExtra("startScreen") == "transactions" -> AppDestination.TransactionHistory
             else -> AppDestination.Login
         }

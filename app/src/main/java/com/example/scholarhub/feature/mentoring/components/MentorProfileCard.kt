@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -62,7 +63,7 @@ fun MentorProfileCard(profile: MentorProfileUi, modifier: Modifier = Modifier) {
             height = 80.dp,
             crop = profile.photoCrop,
             contentDescription = "Foto ${profile.name}",
-            modifier = Modifier.clip(ProfileCardShape),
+            modifier = Modifier.clip(CircleShape),
         )
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -89,9 +90,9 @@ fun MentorProfileCard(profile: MentorProfileUi, modifier: Modifier = Modifier) {
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            ProfileHeading("Profile")
+            ProfileHeading("Profil Mentor")
             LabelValueRows(profile.profile)
-            ProfileHeading("Contact", topPadding = 12)
+            ProfileHeading("Informasi Kontak", topPadding = 12)
             LabelValueRows(profile.contact)
         }
     }
@@ -135,24 +136,55 @@ private fun LabelValueRows(rows: List<Pair<String, String>>) {
     }
 }
 
-internal val SampleMentorProfile = MentorProfileUi(
-    id = "samantha-dira",
-    name = "Samantha Dira",
-    affiliation = "Awardee BU - Universitas Brawijaya",
-    bio = "Alumni Universitas Brawijaya, berpengalaman meloloskan 50+ penerima beasiswa LPDP dan Chevening.",
-    profile = listOf(
-        "Universitas" to "Universitas Brawijaya",
-        "Jurusan" to "Teknik Informatika",
-        "Spesialisasi" to "Review Esai, Simulasi Wawancara",
+private val AvatarCrop = FigmaCrop(scaleY = 1.7902f, offsetY = -0.3951f)
+
+/** Profil Detail Mentor (Figma `209:5537`) per ID mentor di [SampleMentors]. Masih contoh statis. */
+internal val MentorProfiles = listOf(
+    MentorProfileUi(
+        id = "samantha-dira",
+        name = "Samantha Dira",
+        affiliation = "Awardee Beasiswa Unggulan",
+        bio = "Alumni Universitas Brawijaya, berpengalaman meloloskan 50+ penerima beasiswa LPDP dan Chevening.",
+        profile = listOf(
+            "Universitas" to "Universitas Brawijaya",
+            "Program Studi" to "Teknik Informatika",
+            "Spesialisasi" to "Review Esai, Simulasi Wawancara",
+        ),
+        contact = listOf("Instagram" to "@samanthadira", "Email" to "samanthadira@gmail.com"),
+        photo = R.drawable.mentor_avatar,
+        photoCrop = AvatarCrop,
     ),
-    contact = listOf(
-        "Instagram" to "@samanthadira",
-        "Email" to "samanthadira@gmail.com",
+    MentorProfileUi(
+        id = "sarah-aurelia",
+        name = "Sarah Aurelia, S.Kom",
+        affiliation = "Awardee Tanoto Foundation",
+        bio = "Lulusan Ilmu Komputer Universitas Indonesia, mendampingi penyusunan esai dan persiapan wawancara beasiswa.",
+        profile = listOf(
+            "Universitas" to "Universitas Indonesia",
+            "Program Studi" to "Ilmu Komputer",
+            "Spesialisasi" to "Review Esai, Simulasi Wawancara",
+        ),
+        contact = listOf("Instagram" to "@sarahaurelia", "Email" to "sarahaurelia@gmail.com"),
+        photo = R.drawable.mentor_sarah,
+        photoCrop = FigmaCrop(scaleX = 1.0027f, scaleY = 1.7853f, offsetX = -0.0014f, offsetY = -0.3933f),
     ),
-    // Figma memakai foto yang sama dengan avatar sesi, crop 179.02% / −39.51%.
-    photo = R.drawable.mentor_avatar,
-    photoCrop = FigmaCrop(scaleY = 1.7902f, offsetY = -0.3951f),
+    MentorProfileUi(
+        id = "ahmad-ibra",
+        name = "Ahmad Ibra, S.Sos",
+        affiliation = "Awardee Beasiswa Pertamina",
+        bio = "Alumni ITB yang aktif membantu mahasiswa menyiapkan esai motivasi dan rencana studi.",
+        profile = listOf(
+            "Universitas" to "Institut Teknologi Bandung",
+            "Program Studi" to "Studi Pembangunan",
+            "Spesialisasi" to "Review Esai, Simulasi Wawancara",
+        ),
+        contact = listOf("Instagram" to "@ahmadibra", "Email" to "ahmadibra@gmail.com"),
+        photo = R.drawable.mentor_ahmad,
+        photoCrop = FigmaCrop(scaleX = 1.0027f, scaleY = 1.7853f, offsetX = -0.0014f, offsetY = -0.3933f),
+    ),
 )
+
+internal val SampleMentorProfile = MentorProfiles.first()
 
 @Preview(showBackground = true, backgroundColor = 0xFFF1F1F1, widthDp = 401)
 @Composable

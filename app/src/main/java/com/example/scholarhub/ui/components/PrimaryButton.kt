@@ -30,6 +30,7 @@ import com.example.scholarhub.ui.theme.NavyShadow
 import com.example.scholarhub.ui.theme.ScholarHubDimens
 import com.example.scholarhub.ui.theme.ScholarHubRadius
 import com.example.scholarhub.ui.theme.ScholarHubTheme
+import androidx.compose.ui.draw.alpha
 
 /**
  * Tombol utama navy radius 12. Di Figma tombol ini punya shadow solid tanpa blur
@@ -52,6 +53,8 @@ fun PrimaryButton(
     iconGap: Dp = 8.dp,
     /** Ikon setelah teks, misalnya sparkle di tombol ScholarMatch. */
     trailingContent: (@Composable () -> Unit)? = null,
+    /** Nonaktif: transparan 40% dan tidak bisa diketuk (sama dengan tombol ScholarMatch). */
+    enabled: Boolean = true,
 ) {
     Row(
         modifier = modifier
@@ -69,9 +72,10 @@ fun PrimaryButton(
                     Modifier
                 },
             )
+            .alpha(if (enabled) 1f else 0.4f)
             .clip(ButtonShape)
             .background(containerColor)
-            .clickable(onClick = onClick)
+            .clickable(enabled = enabled, onClick = onClick)
             .padding(contentPadding),
         horizontalArrangement = Arrangement.spacedBy(iconGap, Alignment.CenterHorizontally),
         verticalAlignment = Alignment.CenterVertically,

@@ -33,16 +33,25 @@ import com.example.scholarhub.ui.theme.NunitoFontFamily
 
 private val BackgroundColor = Color(0xFFF1F1F1)
 private val NavyDark = Color(0xFF0F2A66)
-private val Navy = Color(0xFF001645)
 private val Blue = Color(0xFF006398)
 private val LabelColor = Color(0xFF141D21)
 private val MutedText = Color(0xFF444650)
 private val DividerColor = Color(0xFFE0E9EF)
 
+private val LabelStyle = TextStyle(
+    fontFamily = NunitoFontFamily,
+    fontWeight = FontWeight.SemiBold,
+    fontSize = 12.37.sp,
+    lineHeight = 16.5.sp,
+    letterSpacing = 0.25.sp,
+    color = LabelColor,
+)
+
+/** Login (Figma `130:5758`). */
 @Composable
 fun LoginScreen(
     onLoginSuccess: (email: String, isMentor: Boolean) -> Unit = { _, _ -> },
-    onNavigateToRegister: (role: String) -> Unit = {},
+    onNavigateToRegister: () -> Unit = {},
 ) {
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
@@ -50,140 +59,103 @@ fun LoginScreen(
 
     Scaffold(
         containerColor = BackgroundColor,
-        topBar = {
-            AuthHeader(badgeText = "LOGIN")
-        },
+        topBar = { AuthHeader() },
     ) { padding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
+                .padding(horizontal = 16.dp, vertical = 24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            // Mascot illustration standing directly on background
             Image(
                 painter = painterResource(R.drawable.auth_mascot),
-                contentDescription = "ScholarHub Mascot",
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(230.dp)
-                    .padding(vertical = 4.dp),
+                contentDescription = "Maskot ScholarHub",
+                modifier = Modifier.size(width = 192.5.dp, height = 273.6.dp),
                 contentScale = ContentScale.Fit,
             )
 
-            Spacer(Modifier.height(8.dp))
-
-            // Main Login Card
             Column(
                 modifier = Modifier
+                    .padding(bottom = 16.dp)
                     .fillMaxWidth()
                     .shadow(
                         elevation = 6.dp,
-                        shape = RoundedCornerShape(16.dp),
+                        shape = RoundedCornerShape(16.5.dp),
                         spotColor = Color(0x140F2A66),
                         ambientColor = Color(0x140F2A66),
                     )
-                    .clip(RoundedCornerShape(16.dp))
+                    .clip(RoundedCornerShape(16.5.dp))
                     .background(Color.White)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(16.dp),
+                    .padding(16.5.dp),
+                verticalArrangement = Arrangement.spacedBy(24.7.dp),
             ) {
-                // Email field
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Email",
-                        style = TextStyle(
-                            fontFamily = NunitoFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.5.sp,
-                            color = LabelColor,
-                        ),
-                    )
-                    AuthInputField(
-                        value = email,
-                        onValueChange = { email = it },
-                        placeholder = "Masukkan email Anda",
-                        leadingIcon = R.drawable.ic_auth_email,
-                        keyboardType = KeyboardType.Email,
-                        cornerRadius = 12.dp,
-                    )
-                }
+                Column(verticalArrangement = Arrangement.spacedBy(16.5.dp)) {
+                    Column(verticalArrangement = Arrangement.spacedBy(6.2.dp)) {
+                        Text(text = "Email", style = LabelStyle)
+                        AuthInputField(
+                            value = email,
+                            onValueChange = { email = it },
+                            placeholder = "Masukkan email Anda",
+                            leadingIcon = R.drawable.ic_auth_email,
+                            keyboardType = KeyboardType.Email,
+                            cornerRadius = 12.37.dp,
+                        )
+                    }
 
-                // Password field
-                Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    Text(
-                        text = "Kata Sandi",
-                        style = TextStyle(
-                            fontFamily = NunitoFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.5.sp,
-                            color = LabelColor,
-                        ),
-                    )
-                    AuthInputField(
-                        value = password,
-                        onValueChange = { password = it },
-                        placeholder = "Masukkan kata sandi akun",
-                        leadingIcon = R.drawable.ic_auth_lock,
-                        isPassword = true,
-                        passwordVisible = passwordVisible,
-                        cornerRadius = 12.dp,
-                        trailingIcon = {
-                            IconButton(
-                                onClick = { passwordVisible = !passwordVisible },
-                                modifier = Modifier.size(24.dp),
-                            ) {
-                                Image(
-                                    painter = painterResource(R.drawable.ic_auth_eye),
-                                    contentDescription = if (passwordVisible) "Sembunyikan kata sandi" else "Tampilkan kata sandi",
-                                    modifier = Modifier.size(18.dp),
-                                    colorFilter = ColorFilter.tint(
-                                        if (passwordVisible) Blue else Color(0xFF757681),
-                                    ),
-                                )
-                            }
-                        },
-                    )
-                }
+                    Column(verticalArrangement = Arrangement.spacedBy(6.2.dp)) {
+                        Text(text = "Kata Sandi", style = LabelStyle)
+                        AuthInputField(
+                            value = password,
+                            onValueChange = { password = it },
+                            placeholder = "Masukkan kata sandi akun",
+                            leadingIcon = R.drawable.ic_auth_lock,
+                            isPassword = true,
+                            passwordVisible = passwordVisible,
+                            keyboardType = KeyboardType.Password,
+                            cornerRadius = 12.37.dp,
+                            trailingIcon = {
+                                IconButton(
+                                    onClick = { passwordVisible = !passwordVisible },
+                                    modifier = Modifier.size(37.dp),
+                                ) {
+                                    Image(
+                                        painter = painterResource(R.drawable.ic_auth_eye),
+                                        contentDescription = if (passwordVisible) "Sembunyikan kata sandi" else "Tampilkan kata sandi",
+                                        modifier = Modifier.size(width = 18.9.dp, height = 12.9.dp),
+                                        colorFilter = ColorFilter.tint(if (passwordVisible) Blue else MutedText),
+                                    )
+                                }
+                            },
+                        )
+                    }
 
-                Spacer(Modifier.height(4.dp))
-
-                // CTA Button: Masuk ke Akun
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(50.dp)
-                        .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.dp), spotColor = Color(0x330F2A66))
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(NavyDark)
-                        .clickable { onLoginSuccess(email, email.contains("mentor", ignoreCase = true)) },
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.Center,
+                    Box(
+                        modifier = Modifier
+                            .padding(top = 8.25.dp)
+                            .fillMaxWidth()
+                            .height(49.5.dp)
+                            .shadow(elevation = 4.dp, shape = RoundedCornerShape(12.37.dp), spotColor = Color(0x400F2A66))
+                            .clip(RoundedCornerShape(12.37.dp))
+                            .background(NavyDark)
+                            .clickable { onLoginSuccess(email, email.contains("mentor", ignoreCase = true)) },
+                        contentAlignment = Alignment.Center,
                     ) {
                         Text(
                             text = "Masuk ke Akun",
                             style = TextStyle(
                                 fontFamily = NunitoFontFamily,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.5.sp,
+                                fontWeight = FontWeight.Medium,
+                                fontSize = 13.sp,
+                                lineHeight = 19.5.sp,
                                 color = Color.White,
                             ),
-                        )
-                        Spacer(Modifier.width(8.dp))
-                        Image(
-                            painter = painterResource(R.drawable.ic_arrow_forward),
-                            contentDescription = null,
-                            modifier = Modifier.size(14.dp),
                         )
                     }
                 }
 
-                // Divider
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -192,113 +164,21 @@ fun LoginScreen(
                 )
             }
 
-            Spacer(Modifier.height(16.dp))
-
-            // Footer / Registration Switcher
-            Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(10.dp),
+            Row(
+                modifier = Modifier.padding(16.5.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Text(
-                        text = "Belum punya akun ScholarHub? ",
-                        style = TextStyle(
-                            fontFamily = NunitoFontFamily,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 12.5.sp,
-                            color = MutedText,
-                        ),
-                    )
-                    Text(
-                        text = "Daftar Sekarang:",
-                        style = TextStyle(
-                            fontFamily = NunitoFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 12.5.sp,
-                            color = Navy,
-                        ),
-                    )
-                }
-
-                // Two button options: Daftar Mahasiswa & Gabung Mentor
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    // Daftar Mahasiswa Button
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .shadow(elevation = 1.dp, shape = RoundedCornerShape(12.dp), spotColor = Color(0x1A000000))
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White)
-                            .clickable { onNavigateToRegister("mahasiswa") }
-                            .padding(horizontal = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            Image(
-                                painter = painterResource(R.drawable.ic_auth_student),
-                                contentDescription = null,
-                                modifier = Modifier.size(width = 15.dp, height = 11.dp),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = "Daftar Mahasiswa",
-                                style = TextStyle(
-                                    fontFamily = NunitoFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.5.sp,
-                                    color = Navy,
-                                ),
-                            )
-                        }
-                    }
-
-                    // Gabung Mentor Button
-                    Box(
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(44.dp)
-                            .shadow(elevation = 1.dp, shape = RoundedCornerShape(12.dp), spotColor = Color(0x1A000000))
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(Color.White)
-                            .clickable { onNavigateToRegister("mentor") }
-                            .padding(horizontal = 8.dp),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            Image(
-                                painter = painterResource(R.drawable.ic_auth_mentor),
-                                contentDescription = null,
-                                modifier = Modifier.size(width = 15.dp, height = 14.dp),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text(
-                                text = "Gabung Mentor",
-                                style = TextStyle(
-                                    fontFamily = NunitoFontFamily,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.5.sp,
-                                    color = Navy,
-                                ),
-                            )
-                        }
-                    }
-                }
+                val footerStyle = TextStyle(fontFamily = NunitoFontFamily, fontSize = 12.37.sp, lineHeight = 16.5.sp)
+                Text(
+                    text = "Belum punya akun ScholarHub?",
+                    style = footerStyle.copy(fontWeight = FontWeight.Normal, color = MutedText),
+                )
+                Text(
+                    text = "Daftar Sekarang",
+                    modifier = Modifier.clickable(onClick = onNavigateToRegister),
+                    style = footerStyle.copy(fontWeight = FontWeight.Bold, color = Blue),
+                )
             }
         }
     }

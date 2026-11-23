@@ -1,783 +1,476 @@
 package com.example.scholarhub.feature.mentor
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.DrawableRes
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.ColorFilter
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
-import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.example.scholarhub.R
 import com.example.scholarhub.feature.auth.components.AuthHeader
-import com.example.scholarhub.ui.theme.NunitoFontFamily
+import com.example.scholarhub.feature.mentoring.Booking
+import com.example.scholarhub.feature.mentoring.BookingSessionCard
+import com.example.scholarhub.feature.mentoring.MentoringStore
+import com.example.scholarhub.feature.mentoring.rememberNow
+import com.example.scholarhub.feature.mentoring.rupiah
+import com.example.scholarhub.feature.profile.FormActionCard
+import com.example.scholarhub.feature.profile.FormScaffold
+import com.example.scholarhub.feature.profile.components.LogoutButton
+import com.example.scholarhub.feature.profile.components.ProfileSectionTitle
+import com.example.scholarhub.ui.components.EndOfFeed
+import com.example.scholarhub.ui.components.FormPickerField
+import com.example.scholarhub.ui.components.FormSectionCard
+import com.example.scholarhub.ui.components.FormTextField
+import com.example.scholarhub.ui.components.HelpRow
+import com.example.scholarhub.ui.components.OutlineButton
+import com.example.scholarhub.ui.components.PhotoCard
+import com.example.scholarhub.ui.components.PrimaryButton
+import com.example.scholarhub.ui.components.ProfileInfoCard
+import com.example.scholarhub.ui.components.ProfileInfoSection
+import com.example.scholarhub.ui.components.ScholarHubDetailTopBar
+import com.example.scholarhub.ui.theme.Base
+import com.example.scholarhub.ui.theme.Navy
+import com.example.scholarhub.ui.theme.OutlineMist
+import com.example.scholarhub.ui.theme.Sky
+import com.example.scholarhub.ui.theme.SurfaceCard
+import com.example.scholarhub.ui.theme.TextVariant
+import com.example.scholarhub.ui.theme.nunitoSans
+import kotlinx.coroutines.launch
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
-private val BackgroundColor = Color(0xFFF1F1F1)
-private val Navy = Color(0xFF001645)
-private val NavyDark = Color(0xFF0F2A66)
-private val Blue = Color(0xFF006398)
-private val MutedText = Color(0xFF444650)
-private val StatCircleBg = Color(0xFFE0E9EF)
-private val LogoutRed = Color(0xFFBA1A1A)
+private val Shape12 = RoundedCornerShape(12.dp)
+private val Muted = Color(0xFF6F7582)
+private val ItemBlue = Color(0xFFD8EFFD)
+private val LinkBlue = Color(0xFF0077B6)
+private val Caption = nunitoSans(11f, 16.5f, FontWeight.Normal)
+private val LongDate = DateTimeFormatter.ofPattern("d MMMM yyyy", Locale.forLanguageTag("id-ID"))
+private val ShortDate = DateTimeFormatter.ofPattern("d MMM yyyy", Locale.forLanguageTag("id-ID"))
 
-enum class MentorNavTab {
-    Schedule,
-    Home,
-    Profile,
-}
-
+/**
+ * Profil Mentor (Figma `372:24634` lengkap, `323:6672` belum lengkap): kartu profil, aktivitas mentoring, saldo dan
+ * rekening, riwayat penghasilan/penarikan, serta Bantuan & Keamanan.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileMentorScreen(
-    onBack: () -> Unit = {},
-    onLogout: () -> Unit = {},
-    onNavigateToSchedule: () -> Unit = {},
+    store: MentorProfileStore,
+    mentoring: MentoringStore,
+    onBack: () -> Unit,
+    onEdit: () -> Unit,
+    onSessionHistory: () -> Unit,
+    onIncomeHistory: () -> Unit,
+    onWithdrawalHistory: () -> Unit,
+    onHelp: () -> Unit,
+    onChangePassword: () -> Unit,
+    onLogout: () -> Unit,
+    onTabSelect: (MentorNavTab) -> Unit,
 ) {
+    val profile by store.profile.collectAsState()
+    val bookings by mentoring.bookings.collectAsState()
+    val now = rememberNow(mentoring)
+    val history = bookings.mentorHistory(now)
+    val earnings = bookings.mentorEarnings(now)
+    val totalFee = earnings.sumOf { it.price }
+    val balance = totalFee - profile.withdrawals.sumOf { it.amount }
+    var editAccount by remember { mutableStateOf(false) }
+    var confirmWithdraw by remember { mutableStateOf(false) }
+    val snackbar = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
     Scaffold(
-        containerColor = BackgroundColor,
-        topBar = {
-            AuthHeader(
-                badgeText = "MENTOR",
-                onBack = onBack,
-            )
-        },
-        bottomBar = {
-            MentorBottomBar(
-                currentTab = MentorNavTab.Profile,
-                onTabSelect = { tab ->
-                    if (tab == MentorNavTab.Schedule) {
-                        onNavigateToSchedule()
-                    }
-                },
-            )
-        },
+        containerColor = Base,
+        topBar = { AuthHeader(badgeText = "MENTOR", onBack = onBack) },
+        bottomBar = { MentorBottomBar(currentTab = MentorNavTab.Profile, onTabSelect = onTabSelect) },
+        snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(padding)
-                .padding(horizontal = 16.dp, vertical = 16.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp),
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState())
+                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            // 1. Top Profile Card
-            TopProfileCard()
-
-            // 2. Highlight Section: Dompet & Saldo
-            WalletHighlightCard()
-
-            // 3. Statistik Ringkas Mentor
-            MentorStatsRow()
-
-            // 4. Riwayat Penarikan Terakhir
-            WithdrawalHistorySection()
-
-            // 5. Pengaturan Layanan Mentor
-            MentorSettingsSection()
-
-            // 6. Tombol Logout
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(48.dp)
-                    .clip(RoundedCornerShape(12.dp))
-                    .background(Color(0xFFECF5FB))
-                    .clickable(onClick = onLogout),
-                contentAlignment = Alignment.Center,
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.Center,
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_mentor_logout),
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp),
-                        colorFilter = ColorFilter.tint(LogoutRed),
-                    )
-                    Spacer(Modifier.width(8.dp))
-                    Text(
-                        text = "Keluar dari Akun Mentor",
-                        style = TextStyle(
-                            fontFamily = NunitoFontFamily,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp,
-                            color = LogoutRed,
+            ProfileInfoCard(
+                name = profile.name,
+                photo = profile.photo,
+                fallbackPhoto = R.drawable.mentor_samantha,
+                subtitle = profile.scholarship.ifBlank { "Status beasiswa belum ditambahkan" },
+                bio = profile.about.ifBlank { "Lengkapi profil agar mentee mengenal pengalaman dan keahlianmu." },
+                sections = listOf(
+                    ProfileInfoSection(
+                        "Profil Mentor",
+                        listOf(
+                            "Universitas" to profile.campus.orEmpty(),
+                            "Program Studi" to profile.major.orEmpty(),
+                            "Spesialisasi" to profile.specializations.joinToString(", "),
                         ),
-                    )
-                }
-            }
-
-            Spacer(Modifier.height(8.dp))
-        }
-    }
-}
-
-@Composable
-private fun TopProfileCard() {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 3.dp, shape = RoundedCornerShape(14.dp), spotColor = Color(0x14000000))
-            .clip(RoundedCornerShape(14.dp))
-            .background(Color.White)
-            .padding(16.dp),
-    ) {
-        // Decorative top right accent
-        Box(
-            modifier = Modifier
-                .size(100.dp)
-                .offset(x = 40.dp, y = (-40).dp)
-                .align(Alignment.TopEnd)
-                .clip(CircleShape)
-                .background(Color(0x33CCE5FF)),
-        )
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(14.dp),
-        ) {
-            // Mentor Photo
-            Image(
-                painter = painterResource(R.drawable.mentor_avatar),
-                contentDescription = "Avatar Mentor",
-                modifier = Modifier
-                    .size(width = 72.dp, height = 70.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .border(2.dp, Blue.copy(alpha = 0.4f), RoundedCornerShape(24.dp)),
-                contentScale = ContentScale.Crop,
-            )
-
-            // Info
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp),
-            ) {
-                Text(
-                    text = "Samantha Dira, S.Pd",
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 19.sp,
-                        color = Navy,
                     ),
-                )
-                Text(
-                    text = "Awardee LPDP University of Oxford • Top Rated Mentor",
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 12.sp,
-                        lineHeight = 16.sp,
-                        color = MutedText,
-                    ),
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun WalletHighlightCard() {
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 6.dp, shape = RoundedCornerShape(14.dp), spotColor = Color(0x26001645))
-            .clip(RoundedCornerShape(14.dp))
-            .background(Navy)
-            .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        // Label Saldo
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_mentor_wallet),
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                colorFilter = ColorFilter.tint(Color(0xFFDBE1FF)),
-            )
-            Text(
-                text = "SALDO PENGHASILAN TERSEDIA",
-                style = TextStyle(
-                    fontFamily = NunitoFontFamily,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 12.5.sp,
-                    color = Color(0xFFDBE1FF),
-                    letterSpacing = 0.5.sp,
+                    ProfileInfoSection("Informasi Kontak", listOf("Instagram" to profile.instagram, "Email" to profile.email)),
                 ),
+                actionLabel = if (profile.complete) "Edit Profil" else "Lengkapi Profil",
+                onAction = onEdit,
             )
-        }
 
-        // Saldo Nominal
-        Text(
-            text = "Rp 450.000",
-            style = TextStyle(
-                fontFamily = NunitoFontFamily,
-                fontWeight = FontWeight.ExtraBold,
-                fontSize = 38.sp,
-                color = Color.White,
-            ),
-        )
-
-        // Bank Details Inset
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.dp))
-                .background(Color(0xFF0F2A66))
-                .padding(8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(10.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(36.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color.White),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_mentor_bank),
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                        colorFilter = ColorFilter.tint(Navy),
-                    )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProfileSectionTitle("Aktivitas Mentoring")
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    ActivityTile(R.drawable.ic_mentor_sessions_done, 17.008.dp, 13.915.dp, earnings.size.toString(), "Sesi Selesai", Modifier.weight(1f))
+                    ActivityTile(R.drawable.ic_mentor_fee, 15.462.dp, 14.688.dp, rupiah(totalFee), "Total Fee Mentoring", Modifier.weight(1f))
                 }
-                Column {
-                    Text(
-                        text = "BCA • 8271****90",
-                        style = TextStyle(
-                            fontFamily = NunitoFontFamily,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 12.5.sp,
-                            color = Color.White,
-                        ),
-                    )
-                    Text(
-                        text = "a.n. Sarah Aurelia",
-                        style = TextStyle(
-                            fontFamily = NunitoFontFamily,
-                            fontWeight = FontWeight.Normal,
-                            fontSize = 11.5.sp,
-                            color = Color(0xFFB3C5FF),
-                        ),
+                if (history.isEmpty()) {
+                    WhiteCard {
+                        Text("Riwayat Mentoring", style = MaterialTheme.typography.titleSmall, color = Navy)
+                        Text("Belum ada sesi mentoring", style = Caption, color = Navy)
+                    }
+                } else {
+                    Row(
+                        Modifier.fillMaxWidth().clip(Shape12).background(SurfaceCard).clickable(onClick = onSessionHistory).padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text("Riwayat Mentoring", Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium, color = Navy)
+                        Image(painterResource(R.drawable.ic_profile_row_chevron), null, Modifier.size(6.167.dp, 10.dp))
+                    }
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProfileSectionTitle("Penghasilan")
+                WhiteCard(spacing = 12.dp) {
+                    Text(rupiah(balance), style = nunitoSans(23f, 38.4f, FontWeight.SemiBold), color = Navy)
+                    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                            Text(profile.account?.masked ?: "No. Rek", style = MaterialTheme.typography.bodyMedium, color = Navy)
+                            Text("a.n. ${profile.account?.holder ?: "xxx xxx"}", style = MaterialTheme.typography.bodyMedium, color = Navy)
+                        }
+                        Text(
+                            if (profile.account == null) "Tambah Rekening" else "Ubah Rekening",
+                            Modifier.clip(Shape12).background(Sky).border(1.dp, Color(0x3B006398), Shape12)
+                                .clickable(role = Role.Button) { editAccount = true }.padding(8.dp),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Navy,
+                        )
+                    }
+                    if (balance == 0) Text("Saldo akan bertambah setelah sesi mentoring selesai.", style = MaterialTheme.typography.bodyMedium, color = Muted)
+                    PrimaryButton(
+                        text = "Tarik Fee Sekarang",
+                        onClick = { confirmWithdraw = true },
+                        enabled = balance > 0 && profile.account != null,
+                        modifier = Modifier.fillMaxWidth().height(48.dp),
+                        solidShadow = null,
                     )
                 }
             }
 
-            Box(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(100.dp))
-                    .background(Color(0x1AFFFFFF))
-                    .clickable { }
-                    .padding(horizontal = 10.dp, vertical = 6.dp),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = "Ubah Rekening",
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.5.sp,
-                        color = Color.White,
-                    ),
-                )
-            }
-        }
+            HistoryPreviewCard(
+                title = "Riwayat Penghasilan",
+                emptyTitle = "Belum ada penghasilan",
+                emptyBody = "Penghasilan akan tercatat setelah sesi mentoring selesai.",
+                onSeeAll = onIncomeHistory.takeIf { earnings.isNotEmpty() },
+            ) { earnings.firstOrNull()?.let { IncomeItem(it) } }
+            HistoryPreviewCard(
+                title = "Riwayat Penarikan",
+                emptyTitle = "Belum ada penarikan",
+                emptyBody = "Riwayat penarikan saldo akan muncul di sini.",
+                onSeeAll = onWithdrawalHistory.takeIf { profile.withdrawals.isNotEmpty() },
+            ) { profile.withdrawals.firstOrNull()?.let { WithdrawalItem(it) } }
 
-        // CTA Tarik Fee
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(48.dp)
-                .shadow(elevation = 3.dp, shape = RoundedCornerShape(100.dp))
-                .clip(RoundedCornerShape(100.dp))
-                .background(Blue)
-                .clickable { },
-            contentAlignment = Alignment.Center,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_mentor_money_out),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    colorFilter = ColorFilter.tint(Color.White),
-                )
-                Spacer(Modifier.width(8.dp))
-                Text(
-                    text = "Tarik Fee Sekarang",
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp,
-                        color = Color.White,
-                    ),
-                )
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                ProfileSectionTitle("Bantuan & Keamanan")
+                HelpRow(R.drawable.ic_profile_help, 17.179.dp, 15.462.dp, "Pusat Bantuan", onHelp)
+                HelpRow(R.drawable.ic_profile_password, 13.333.dp, 17.5.dp, "Ganti Password", onChangePassword)
             }
+            LogoutButton(onClick = onLogout, label = "Keluar dari Akun Mentor")
+        }
+    }
+
+    if (editAccount) {
+        var bank by remember { mutableStateOf(profile.account?.bank.orEmpty()) }
+        var number by remember { mutableStateOf(profile.account?.number.orEmpty()) }
+        var holder by remember { mutableStateOf(profile.account?.holder.orEmpty()) }
+        MentorSheet(onDismiss = { editAccount = false }) {
+            Text(if (profile.account == null) "Tambah Rekening" else "Ubah Rekening", style = MaterialTheme.typography.titleMedium, color = Navy)
+            FormTextField("Nama Bank", bank, { bank = it }, "Contoh: BCA")
+            FormTextField("Nomor Rekening", number, { number = it.filter(Char::isDigit).take(20) }, "Nomor rekening", keyboardType = KeyboardType.Number)
+            FormTextField("Atas Nama", holder, { holder = it }, "Nama pemilik rekening")
+            PrimaryButton(
+                text = "Simpan Rekening",
+                onClick = {
+                    store.update { it.copy(account = BankAccount(bank.trim(), number, holder.trim())) }
+                    editAccount = false
+                },
+                enabled = bank.isNotBlank() && number.length >= 6 && holder.isNotBlank(),
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                solidShadow = null,
+            )
+            OutlineButton("Batal", onClick = { editAccount = false })
+        }
+    }
+
+    if (confirmWithdraw) {
+        MentorSheet(onDismiss = { confirmWithdraw = false }) {
+            Text("Tarik fee sekarang?", style = MaterialTheme.typography.titleMedium, color = Navy)
+            Text(
+                "Saldo ${rupiah(balance)} akan dikirim ke ${profile.account?.masked} a.n. ${profile.account?.holder}.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Navy,
+            )
+            PrimaryButton(
+                text = "Tarik Fee",
+                onClick = {
+                    store.withdraw(balance, mentoring.now())
+                    confirmWithdraw = false
+                    scope.launch { snackbar.showSnackbar("Penarikan berhasil diajukan.") }
+                },
+                modifier = Modifier.fillMaxWidth().height(48.dp),
+                solidShadow = null,
+            )
+            OutlineButton("Batal", onClick = { confirmWithdraw = false })
         }
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun MentorStatsRow() {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(10.dp),
+private fun MentorSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        shape = RoundedCornerShape(topStart = 12.dp, topEnd = 12.dp),
+        containerColor = SurfaceCard,
     ) {
-        StatCard(
-            iconRes = R.drawable.ic_stat_cap,
-            value = "36",
-            label = "Sesi Selesai",
-            modifier = Modifier.weight(1f),
-        )
-        StatCard(
-            iconRes = R.drawable.ic_stat_shield,
-            value = "98%",
-            label = "Kehadiran Tepat",
-            modifier = Modifier.weight(1f),
-        )
-        StatCard(
-            iconRes = R.drawable.ic_stat_fee,
-            value = "Rp 1.4jt",
-            label = "Total Fee\nMentoring",
-            modifier = Modifier.weight(1f),
-        )
+        Column(Modifier.padding(start = 20.dp, end = 20.dp, bottom = 24.dp), verticalArrangement = Arrangement.spacedBy(16.dp), content = content)
     }
 }
 
 @Composable
-private fun StatCard(
-    @DrawableRes iconRes: Int,
-    value: String,
-    label: String,
-    modifier: Modifier = Modifier,
-) {
+private fun WhiteCard(spacing: Dp = 8.dp, content: @Composable ColumnScope.() -> Unit) {
     Column(
-        modifier = modifier
-            .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp), spotColor = Color(0x14000000))
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .padding(vertical = 12.dp, horizontal = 8.dp),
+        Modifier.fillMaxWidth().clip(Shape12).background(SurfaceCard).padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(spacing),
+        content = content,
+    )
+}
+
+/** Tile Aktivitas Mentoring (Figma `Statistik Ringkas Mentor`): ikon dalam lingkaran #E0E9EF 33 dp, nilai Bold 19. */
+@Composable
+private fun ActivityTile(@DrawableRes icon: Int, iconWidth: Dp, iconHeight: Dp, value: String, label: String, modifier: Modifier) {
+    Column(
+        modifier.shadow(1.dp, Shape12).clip(Shape12).background(SurfaceCard).padding(horizontal = 8.dp, vertical = 16.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .size(32.dp)
-                .clip(CircleShape)
-                .background(StatCircleBg),
-            contentAlignment = Alignment.Center,
-        ) {
-            Image(
-                painter = painterResource(iconRes),
-                contentDescription = null,
-                modifier = Modifier.size(16.dp),
-                colorFilter = ColorFilter.tint(Navy),
-            )
+        Box(Modifier.padding(bottom = 4.dp).size(33.dp).clip(CircleShape).background(OutlineMist), contentAlignment = Alignment.Center) {
+            Image(painterResource(icon), null, Modifier.size(iconWidth, iconHeight))
         }
-        Text(
-            text = value,
-            style = TextStyle(
-                fontFamily = NunitoFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 19.sp,
-                color = Navy,
-            ),
-        )
-        Text(
-            text = label,
-            style = TextStyle(
-                fontFamily = NunitoFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 10.sp,
-                lineHeight = 13.sp,
-                color = MutedText,
-                textAlign = TextAlign.Center,
-            ),
-        )
+        Text(value, style = MaterialTheme.typography.titleMedium, color = Navy)
+        Text(label, style = MaterialTheme.typography.labelLarge, color = TextVariant)
     }
 }
 
 @Composable
-private fun WithdrawalHistorySection() {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_mentor_history),
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    colorFilter = ColorFilter.tint(Navy),
-                )
-                Text(
-                    text = "Riwayat Penarikan Terakhir",
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 17.5.sp,
-                        color = Navy,
-                    ),
-                )
+private fun HistoryPreviewCard(title: String, emptyTitle: String, emptyBody: String, onSeeAll: (() -> Unit)?, item: @Composable () -> Unit) {
+    WhiteCard(spacing = 12.dp) {
+        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+            Text(title, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, color = Navy)
+            if (onSeeAll != null) {
+                Text("Semua Riwayat", Modifier.clickable(role = Role.Button, onClick = onSeeAll), style = MaterialTheme.typography.bodyMedium, color = LinkBlue)
             }
-            Text(
-                text = "Lihat Semua →",
-                style = TextStyle(
-                    fontFamily = NunitoFontFamily,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 12.sp,
-                    color = Blue,
-                ),
-            )
         }
-
-        HistoryCard(
-            date = "15 Okt 2026 • BCA Transfer",
-            amount = "Rp 200.000",
-        )
-        HistoryCard(
-            date = "01 Okt 2026 • BCA Transfer",
-            amount = "Rp 750.000",
-        )
+        if (onSeeAll == null) {
+            Text(emptyTitle, style = MaterialTheme.typography.labelLarge, color = Navy)
+            Text(emptyBody, style = MaterialTheme.typography.bodyMedium, color = Muted)
+        } else {
+            item()
+        }
     }
 }
 
+/** Item Riwayat Penghasilan (Figma `Mentor · Item Riwayat Penghasilan` `329:6919`). */
 @Composable
-private fun HistoryCard(date: String, amount: String) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 2.dp, shape = RoundedCornerShape(12.dp), spotColor = Color(0x14000000))
-            .clip(RoundedCornerShape(12.dp))
-            .background(Color.White)
-            .padding(14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFD9EEFB)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_mentor_check),
-                    contentDescription = null,
-                    modifier = Modifier.size(16.dp),
-                    colorFilter = ColorFilter.tint(Blue),
-                )
-            }
-            Column {
-                Text(
-                    text = "Penarikan Berhasil",
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 14.sp,
-                        color = Navy,
-                    ),
-                )
-                Text(
-                    text = date,
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 12.sp,
-                        color = MutedText,
-                    ),
-                )
-            }
+private fun IncomeItem(booking: Booking) {
+    Row(Modifier.fillMaxWidth().clip(Shape12).background(ItemBlue).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(booking.mentee.name, style = MaterialTheme.typography.labelLarge, color = Navy)
+            Text(booking.topic, style = Caption, color = Navy)
+            Text(booking.start.format(LongDate), style = Caption, color = Navy)
+            Text(booking.invoice, style = Caption, color = Muted)
         }
-
-        Text(
-            text = amount,
-            style = TextStyle(
-                fontFamily = NunitoFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 15.sp,
-                color = Navy,
-            ),
-        )
+        Text("+${rupiah(booking.price)}", style = MaterialTheme.typography.labelLarge, color = Navy)
     }
 }
 
+/** Item Riwayat Penarikan (Figma `Mentor · Item Riwayat Penarikan` `329:6926`). */
 @Composable
-private fun MentorSettingsSection() {
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        Text(
-            text = "Pengaturan Layanan Mentor",
-            style = TextStyle(
-                fontFamily = NunitoFontFamily,
-                fontWeight = FontWeight.Bold,
-                fontSize = 17.5.sp,
-                color = Navy,
-            ),
-        )
+private fun WithdrawalItem(withdrawal: Withdrawal) {
+    Row(Modifier.fillMaxWidth().clip(Shape12).background(ItemBlue).padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Penarikan Berhasil", style = MaterialTheme.typography.labelLarge, color = Navy)
+            Text("${withdrawal.at.format(ShortDate)} · ${withdrawal.account.bank} Transfer", style = Caption, color = Navy)
+            Text(withdrawal.account.masked, style = Caption, color = Muted)
+        }
+        Text("-${rupiah(withdrawal.amount)}", style = MaterialTheme.typography.labelLarge, color = Navy)
+    }
+}
 
+/** Kerangka daftar riwayat (Figma `329:6965`, `329:7245`): kartu ringkasan, kartu daftar, penanda akhir. */
+@Composable
+private fun HistoryListScreen(title: String, total: String, summary: String, endText: String, onBack: () -> Unit, items: @Composable ColumnScope.() -> Unit) {
+    Scaffold(containerColor = Base, topBar = { ScholarHubDetailTopBar(title = title, onBack = onBack) }) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .shadow(elevation = 2.dp, shape = RoundedCornerShape(14.dp), spotColor = Color(0x14000000))
-                .clip(RoundedCornerShape(14.dp))
-                .background(Color.White)
-                .padding(vertical = 6.dp),
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            SettingRow(
-                iconRes = R.drawable.ic_sett_price,
-                title = "Tarif Sesi Bimbingan",
-                subtitle = "Atur tarif per sesi (60 menit) online",
-                trailingText = "Rp 50k/jam",
-            )
-            SettingRow(
-                iconRes = R.drawable.ic_sett_vault,
-                title = "Brankas Materi & Template Mentoring",
-                subtitle = "Panduan CV, Essay, dan Mock Interview",
-            )
-            SettingRow(
-                iconRes = R.drawable.ic_sett_sec,
-                title = "Keamanan & Rekening Pencairan",
-                subtitle = "PIN penarikan, 2FA, dan rekening bank aktif",
-            )
-            SettingRow(
-                iconRes = R.drawable.ic_sett_cs,
-                title = "Bantuan Mentor & CS VIP",
-                subtitle = "Respon prioritas penanganan kendala sesi",
-            )
+            WhiteCard {
+                Text(total, style = nunitoSans(23f, 38.4f, FontWeight.SemiBold), color = Navy)
+                Text(summary, style = MaterialTheme.typography.bodyMedium, color = Muted)
+            }
+            WhiteCard(spacing = 12.dp, content = items)
+            EndOfFeed(endText)
         }
     }
 }
 
 @Composable
-private fun SettingRow(
-    @DrawableRes iconRes: Int,
-    title: String,
-    subtitle: String,
-    trailingText: String? = null,
+fun IncomeHistoryScreen(mentoring: MentoringStore, onBack: () -> Unit) {
+    val bookings by mentoring.bookings.collectAsState()
+    val earnings = bookings.mentorEarnings(rememberNow(mentoring))
+    HistoryListScreen(
+        "Riwayat Penghasilan",
+        rupiah(earnings.sumOf { it.price }),
+        "Total penghasilan dari ${earnings.size} sesi mentoring yang telah selesai.",
+        "Semua riwayat penghasilan telah dimuat",
+        onBack,
+    ) { earnings.forEach { IncomeItem(it) } }
+}
+
+@Composable
+fun WithdrawalHistoryScreen(store: MentorProfileStore, mentoring: MentoringStore, onBack: () -> Unit) {
+    val profile by store.profile.collectAsState()
+    val bookings by mentoring.bookings.collectAsState()
+    val withdrawn = profile.withdrawals.sumOf { it.amount }
+    val balance = bookings.mentorEarnings(rememberNow(mentoring)).sumOf { it.price } - withdrawn
+    HistoryListScreen(
+        "Riwayat Penarikan",
+        rupiah(withdrawn),
+        "Total penarikan berhasil · ${profile.withdrawals.size} transaksi. Saldo tersedia ${rupiah(balance)}.",
+        "Semua riwayat penarikan telah dimuat",
+        onBack,
+    ) { profile.withdrawals.forEach { WithdrawalItem(it) } }
+}
+
+/** Riwayat Mentoring mentor (Figma `364:7709`): sesi menunggu konfirmasi, dalam peninjauan, dan selesai. */
+@Composable
+fun MentorSessionHistoryScreen(mentoring: MentoringStore, onBack: () -> Unit, onContactAdmin: () -> Unit) {
+    val bookings by mentoring.bookings.collectAsState()
+    val now = rememberNow(mentoring)
+    Scaffold(containerColor = Base, topBar = { ScholarHubDetailTopBar(title = "Riwayat Mentoring", onBack = onBack) }) { padding ->
+        Column(
+            Modifier.fillMaxSize().padding(padding).verticalScroll(rememberScrollState()).padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+        ) {
+            bookings.mentorHistory(now).forEach { booking ->
+                BookingSessionCard(booking, now, asMentor = true, onContactAdmin = onContactAdmin, mentorNote = booking.mentorNote(now))
+            }
+            EndOfFeed("Semua riwayat mentoring telah dimuat")
+        }
+    }
+}
+
+/** Lengkapi Profil (Figma `323:6828`) / Edit Profil terisi (`323:6940`) mentor. */
+@Composable
+fun MentorEditProfileScreen(
+    profile: MentorProfile,
+    campusOptions: List<String>,
+    majorOptions: List<String>,
+    onBack: () -> Unit,
+    onSave: (MentorProfile) -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { }
-            .padding(horizontal = 14.dp, vertical = 10.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Row(
-            modifier = Modifier.weight(1f),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(36.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .background(Color(0xFFE8F1F8)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Image(
-                    painter = painterResource(iconRes),
-                    contentDescription = null,
-                    modifier = Modifier.size(18.dp),
-                    colorFilter = ColorFilter.tint(Navy),
-                )
-            }
-            Column {
-                Text(
-                    text = title,
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 13.5.sp,
-                        color = Navy,
-                    ),
-                )
-                Text(
-                    text = subtitle,
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Normal,
-                        fontSize = 11.5.sp,
-                        color = MutedText,
-                    ),
-                )
-            }
-        }
+    var draft by remember { mutableStateOf(profile) }
+    val picker = rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri -> uri?.let { draft = draft.copy(photo = it) } }
+    val emailError = if (draft.email.isNotBlank() && !android.util.Patterns.EMAIL_ADDRESS.matcher(draft.email.trim()).matches()) "Format email tidak valid." else null
+    val valid = draft.name.isNotBlank() && draft.email.isNotBlank() && emailError == null
 
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            if (trailingText != null) {
-                Text(
-                    text = trailingText,
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 12.sp,
-                        color = Blue,
-                    ),
-                )
-            }
-            Image(
-                painter = painterResource(R.drawable.ic_chevron_right),
-                contentDescription = null,
-                modifier = Modifier.size(14.dp),
-                colorFilter = ColorFilter.tint(Color(0xFF757681)),
+    FormScaffold(
+        if (profile.complete) "Edit Profil" else "Lengkapi Profil",
+        "Perbarui profil agar mentee mengenal pengalaman dan keahlian mentoringmu.",
+        onBack,
+    ) {
+        PhotoCard(draft.photo, R.drawable.mentor_samantha) {
+            picker.launch(PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+        }
+        FormSectionCard("Identitas diri") {
+            FormTextField("Nama Lengkap", draft.name, { draft = draft.copy(name = it) }, "Nama lengkap", "Nama ini ditampilkan pada profil dan daftar mentor.",
+                error = if (draft.name.isBlank()) "Nama wajib diisi." else null)
+        }
+        FormSectionCard("Profil Mentor") {
+            FormTextField("Status Beasiswa", draft.scholarship, { draft = draft.copy(scholarship = it) }, "Contoh: Awardee Beasiswa Unggulan",
+                "Tuliskan pengalaman beasiswa yang relevan.")
+            FormTextField("Tentang Saya", draft.about, { draft = draft.copy(about = it) }, "Ceritakan pengalaman dan pendekatan mentoringmu.",
+                "Perkenalkan pengalamanmu secara singkat.", minHeight = 96.dp)
+        }
+        FormSectionCard("Pendidikan & Keahlian") {
+            FormPickerField("Perguruan Tinggi", draft.campus, "Pilih perguruan tinggi", campusOptions, { draft = draft.copy(campus = it) },
+                "Gunakan kampus tempat kamu kuliah atau lulus.")
+            FormPickerField("Program Studi", draft.major, "Pilih program studi", majorOptions, { draft = draft.copy(major = it) },
+                "Pilih program studi sesuai latar pendidikanmu.")
+            FormPickerField(
+                "Spesialisasi Mentoring",
+                draft.specializations.takeIf { it.isNotEmpty() }?.joinToString(", "),
+                "Pilih spesialisasi mentoring",
+                MentorSpecializations,
+                { s -> draft = draft.copy(specializations = if (s in draft.specializations) draft.specializations - s else draft.specializations + s) },
+                "Kamu dapat memilih lebih dari satu spesialisasi.",
+                selected = draft.specializations.toSet(),
+                multi = true,
             )
         }
-    }
-}
-
-@Composable
-fun MentorBottomBar(
-    currentTab: MentorNavTab,
-    onTabSelect: (MentorNavTab) -> Unit,
-) {
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .shadow(elevation = 8.dp)
-            .background(Color.White)
-            .height(72.dp)
-            .padding(horizontal = 32.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween,
-        ) {
-            // Tab 1: Jadwal Sesi
-            Column(
-                modifier = Modifier
-                    .clickable { onTabSelect(MentorNavTab.Schedule) }
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_nav_calendar),
-                    contentDescription = "Jadwal Sesi",
-                    modifier = Modifier.size(20.dp),
-                    colorFilter = ColorFilter.tint(
-                        if (currentTab == MentorNavTab.Schedule) Navy else Color(0xFF757681),
-                    ),
-                )
-                Text(
-                    text = "Jadwal Sesi",
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = if (currentTab == MentorNavTab.Schedule) Navy else Color(0xFF757681),
-                    ),
-                )
-            }
-
-            // Tab 2: Home
-            Column(
-                modifier = Modifier
-                    .clickable { onTabSelect(MentorNavTab.Home) }
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .background(Color(0xFF757681)),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Image(
-                        painter = painterResource(R.drawable.ic_nav_home),
-                        contentDescription = "Home",
-                        modifier = Modifier.size(18.dp),
-                        colorFilter = ColorFilter.tint(Color.White),
-                    )
-                }
-                Text(
-                    text = "Home",
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = Color(0xFF757681),
-                    ),
-                )
-            }
-
-            // Tab 3: Profil
-            Column(
-                modifier = Modifier
-                    .clickable { onTabSelect(MentorNavTab.Profile) }
-                    .padding(8.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(2.dp),
-            ) {
-                Image(
-                    painter = painterResource(R.drawable.ic_nav_profile),
-                    contentDescription = "Profil",
-                    modifier = Modifier.size(20.dp),
-                    colorFilter = ColorFilter.tint(
-                        if (currentTab == MentorNavTab.Profile) Navy else Color(0xFF757681),
-                    ),
-                )
-                Text(
-                    text = "Profil",
-                    style = TextStyle(
-                        fontFamily = NunitoFontFamily,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 10.sp,
-                        color = if (currentTab == MentorNavTab.Profile) Navy else Color(0xFF757681),
-                    ),
-                )
-            }
+        FormSectionCard("Informasi Kontak") {
+            FormTextField("Instagram · opsional", draft.instagram, { draft = draft.copy(instagram = it.trim()) }, "Contoh: @namapengguna",
+                "Ditampilkan sebagai kontak pada profil mentor.")
+            FormTextField("Email", draft.email, { draft = draft.copy(email = it.trim()) }, "Email aktif", "Gunakan email aktif yang dapat dihubungi mentee.",
+                emailError, KeyboardType.Email)
         }
+        FormActionCard("Simpan perubahan", "Periksa kembali informasi sebelum menyimpan.", "Simpan Perubahan", valid, { onSave(draft.copy(name = draft.name.trim())) })
     }
-}
-
-@Preview(widthDp = 402, heightDp = 1482)
-@Composable
-private fun ProfileMentorPreview() {
-    ProfileMentorScreen()
 }

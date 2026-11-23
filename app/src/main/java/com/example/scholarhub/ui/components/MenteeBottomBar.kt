@@ -42,7 +42,7 @@ import com.example.scholarhub.ui.theme.ShadowSubtle
 import com.example.scholarhub.ui.theme.TextMuted
 
 enum class MenteeNavTab {
-    Premium,
+    Documents,
     Mentor,
     Home,
     Scholarship,
@@ -72,8 +72,8 @@ fun MenteeBottomBar(
             modifier = Modifier.fillMaxWidth().height(56.dp).padding(horizontal = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            NavItem(Modifier.weight(1f), "Premium", R.drawable.ic_nav_premium, 16.dp, 21.dp, currentTab == MenteeNavTab.Premium) {
-                onTabSelect(MenteeNavTab.Premium)
+            NavItem(Modifier.weight(1f), "Dokumen", R.drawable.ic_nav_documents, 17.dp, 21.dp, currentTab == MenteeNavTab.Documents) {
+                onTabSelect(MenteeNavTab.Documents)
             }
             NavItem(Modifier.weight(1f), "Mentor", R.drawable.ic_nav_mentor, 20.dp, 18.dp, currentTab == MenteeNavTab.Mentor) {
                 onTabSelect(MenteeNavTab.Mentor)
@@ -90,7 +90,7 @@ fun MenteeBottomBar(
 }
 
 @Composable
-private fun NavItem(
+internal fun NavItem(
     modifier: Modifier,
     label: String,
     @DrawableRes icon: Int,
@@ -120,7 +120,7 @@ private fun NavItem(
 }
 
 @Composable
-private fun HomeNavItem(modifier: Modifier, selected: Boolean, onClick: () -> Unit) {
+internal fun HomeNavItem(modifier: Modifier, selected: Boolean, onClick: () -> Unit) {
     val color = if (selected) Navy else TextMuted
     Column(
         modifier = modifier.height(56.dp).clickable(onClick = onClick),

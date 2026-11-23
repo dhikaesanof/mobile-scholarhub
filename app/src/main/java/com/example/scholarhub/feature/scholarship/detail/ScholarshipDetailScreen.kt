@@ -61,10 +61,9 @@ import com.example.scholarhub.domain.scholarship.Scholarship
 import com.example.scholarhub.domain.scholarship.ScholarshipBenefit
 import com.example.scholarhub.domain.scholarship.ScholarshipRegistration
 import com.example.scholarhub.domain.scholarship.ScholarshipSection
+import com.example.scholarhub.domain.scholarship.TimelineStep
 import com.example.scholarhub.feature.scholarship.components.providerInitials
 import com.example.scholarhub.ui.components.MascotInfoBanner
-import com.example.scholarhub.ui.components.MenteeBottomBar
-import com.example.scholarhub.ui.components.MenteeNavTab
 import com.example.scholarhub.ui.components.PrimaryButton
 import com.example.scholarhub.ui.components.ScholarHubDetailTopBar
 import com.example.scholarhub.ui.theme.Base
@@ -88,10 +87,12 @@ import com.example.scholarhub.ui.theme.TitleInk
 import com.example.scholarhub.ui.theme.nunitoSans
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
+import java.time.LocalDate
 import java.time.ZonedDateTime
 import java.time.format.DateTimeFormatter
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import androidx.compose.foundation.shape.CircleShape
 
 private val CardShape16 = RoundedCornerShape(16.dp)
 private val Shape12 = RoundedCornerShape(12.dp)
@@ -117,10 +118,9 @@ fun ScholarshipDetailScreen(
     onBack: () -> Unit,
     scholarMatchRelevancePercent: Int? = null,
     onFindMentor: () -> Unit = {},
-    onTabSelect: (MenteeNavTab) -> Unit = {},
 ) {
     val state by model.uiState.collectAsState()
-    ScholarshipDetailContent(state, onBack, model::load, scholarMatchRelevancePercent, onFindMentor, onTabSelect)
+    ScholarshipDetailContent(state, onBack, model::load, scholarMatchRelevancePercent, onFindMentor)
 }
 
 @Composable
@@ -130,7 +130,6 @@ private fun ScholarshipDetailContent(
     onRetry: () -> Unit,
     relevancePercent: Int?,
     onFindMentor: () -> Unit,
-    onTabSelect: (MenteeNavTab) -> Unit,
 ) {
     val uriHandler = LocalUriHandler.current
     val snackbar = remember { SnackbarHostState() }
@@ -145,16 +144,9 @@ private fun ScholarshipDetailContent(
     Scaffold(
         containerColor = Base,
         topBar = {
-            ScholarHubDetailTopBar(
-                title = "Detail Beasiswa",
-                onBack = onBack,
-                // Bookmark masuk fase berikutnya; ikon tampil sesuai Figma tanpa aksi.
-                trailing = {
-                    Image(painterResource(R.drawable.ic_detail_bookmark), "Bookmark", Modifier.size(20.dp))
-                },
-            )
+            // Figma detail beasiswa tanpa bottom nav; ikon favorit ada di kartu atas.
+            ScholarHubDetailTopBar(title = "Detail Beasiswa", onBack = onBack)
         },
-        bottomBar = { MenteeBottomBar(currentTab = MenteeNavTab.Scholarship, onTabSelect = onTabSelect) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
@@ -168,19 +160,26 @@ private fun ScholarshipDetailContent(
                             .padding(start = 23.dp, end = 23.dp, top = 16.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        Hero(scholarship, relevancePercent)
+                        // shortcut: favorit hanya tersimpan selama layar terbuka; simpan permanen bersama fitur Favorit/Bookmark.
+                        var favorite by rememberSaveable(scholarship.id) { mutableStateOf(false) }
+                        Hero(scholarship, relevancePercent, favorite) { favorite = !favorite }
                         DetailTabs(tab) { tab = it }
+                        // Figma: portal resmi tampil di ketiga tab, tepat di bawah tab.
+                        scholarship.registration.applicationUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                            Portal("PORTAL RESMI PENDAFTARAN", url) { openLink(url) }
+                        }
                         when (tab) {
-                            DetailTab.Overview -> Overview(scholarship, openLink)
+                            DetailTab.Overview -> Overview(scholarship)
                             DetailTab.Requirements -> Sections(scholarship.requirements)
                             DetailTab.Guide -> {
-                                Sections(scholarship.guide.sections)
+                                Sections(scholarship.guide.sections, today = ZonedDateTime.now(scholarship.registration.timeZone).toLocalDate())
                                 scholarship.guide.officialGuideUrl?.takeIf { it.isNotBlank() }?.let { url ->
                                     Portal("PANDUAN RESMI", url) { openLink(url) }
                                 }
+                                // Figma `130:8903`: banner mentor hanya di akhir tab Panduan.
+                                MentorCtaBanner(onFindMentor)
                             }
                         }
-                        MentorCtaBanner(onFindMentor)
                     }
                 }
                 else -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -220,7 +219,7 @@ private fun SectionCard(title: String, verticalPadding: Int = 17, content: @Comp
 }
 
 @Composable
-private fun Hero(scholarship: Scholarship, relevancePercent: Int?) {
+private fun Hero(scholarship: Scholarship, relevancePercent: Int?, favorite: Boolean, onToggleFavorite: () -> Unit) {
     val registration = scholarship.registration
     val status = registrationStatus(registration)
     Column(
@@ -240,12 +239,20 @@ private fun Hero(scholarship: Scholarship, relevancePercent: Int?) {
             ) {
                 Text(providerInitials(scholarship.provider), style = nunitoSans(24f, 32f, FontWeight.ExtraBold), color = SurfaceCard)
             }
-            relevancePercent?.let {
-                Text(
-                    text = "$it% Relevan",
-                    modifier = Modifier.clip(PillShape).background(Ocean).padding(horizontal = 8.dp, vertical = 4.dp),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SurfaceCard,
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+                relevancePercent?.let {
+                    Text(
+                        text = "$it% Relevan",
+                        modifier = Modifier.clip(PillShape).background(Ocean).padding(horizontal = 8.dp, vertical = 4.dp),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = SurfaceCard,
+                    )
+                }
+                // Figma `Favorite` 24 dp #FFA99D: garis saat belum difavoritkan, terisi saat difavoritkan.
+                Image(
+                    painterResource(if (favorite) R.drawable.ic_detail_favorite_on else R.drawable.ic_detail_favorite_off),
+                    if (favorite) "Hapus dari favorit" else "Tambah ke favorit",
+                    Modifier.clip(CircleShape).clickable(role = Role.Button, onClick = onToggleFavorite).padding(horizontal = 8.dp, vertical = 4.dp).size(24.dp),
                 )
             }
         }
@@ -313,11 +320,8 @@ private fun DetailTabs(selected: DetailTab, onSelect: (DetailTab) -> Unit) {
 }
 
 @Composable
-private fun Overview(scholarship: Scholarship, openLink: (String) -> Unit) {
+private fun Overview(scholarship: Scholarship) {
     val summary = scholarship.summary
-    scholarship.registration.applicationUrl?.takeIf { it.isNotBlank() }?.let { url ->
-        Portal("PORTAL RESMI PENDAFTARAN", url) { openLink(url) }
-    }
     if (summary.about.isNotBlank()) {
         SectionCard("Tentang Program", verticalPadding = 21) { Text(summary.about, style = BodyText, color = Slate600) }
     }
@@ -364,30 +368,35 @@ private fun Portal(label: String, url: String, onClick: () -> Unit) {
 private fun BenefitCard(benefit: ScholarshipBenefit) {
     Column(Modifier.fillMaxWidth().clip(Shape12).background(Sky).border(1.dp, OutlineSoft, Shape12).padding(13.dp)) {
         Text(benefit.title, style = MaterialTheme.typography.titleSmall, color = Slate800)
-        val amount = benefit.amountIdr?.let {
-            val prefix = if (benefit.amountKind == "maximum") "Hingga Rp" else "Rp"
-            prefix + NumberFormat.getNumberInstance(Indonesian).format(it)
-        } ?: "Nominal belum tersedia"
         val body = MaterialTheme.typography.labelLarge
-        Text(listOfNotNull(amount, benefit.unitOrCoverage).joinToString(" / "), style = body, color = Navy)
+        // Manfaat nonfinansial (mentoring, pelatihan, magang) tidak punya nominal.
+        if (benefit.amountKind != "nonfinancial") {
+            val amount = benefit.amountIdr?.let {
+                val prefix = if (benefit.amountKind == "maximum") "Hingga Rp" else "Rp"
+                prefix + NumberFormat.getNumberInstance(Indonesian).format(it)
+            } ?: "Nominal belum tersedia"
+            Text(listOfNotNull(amount, benefit.unitOrCoverage).joinToString(" / "), style = body, color = Navy)
+        }
         benefit.duration?.let { Text(it, style = body, color = Navy) }
         benefit.description?.let { Text(it, style = body, color = Navy) }
     }
 }
 
 @Composable
-private fun Sections(sections: List<ScholarshipSection>) {
-    for (section in sections.filter { it.body.isNotBlank() || it.items.isNotEmpty() }) {
+private fun Sections(sections: List<ScholarshipSection>, today: LocalDate? = null) {
+    for (section in sections.filter { it.body.isNotBlank() || it.items.isNotEmpty() || it.steps.isNotEmpty() }) {
         SectionCard(section.title) {
             when (section.key) {
                 "educationAcademics" -> LabelValueLines(section.body.lines())
-                "selectionSchedule" -> Timeline(section.body.lines())
+                "selectionSchedule" -> Timeline(section.steps, today)
                 "documents" -> {
                     if (section.body.isNotBlank()) Text(section.body, style = BodyText, color = Slate600)
                     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                         section.items.forEach { DocumentItem(it) }
                     }
                 }
+                // Figma "Cara Mendaftar": langkah bernomor.
+                "application" -> BodyLines(section.body.lines(), numbered = true)
                 else -> BodyLines(section.body.lines())
             }
         }
@@ -396,16 +405,16 @@ private fun Sections(sections: List<ScholarshipSection>) {
 
 /** Isi beberapa baris ditampilkan sebagai bullet (Figma "Kondisi Pendaftar"); satu baris sebagai paragraf. */
 @Composable
-private fun BodyLines(lines: List<String>) {
+private fun BodyLines(lines: List<String>, numbered: Boolean = false) {
     val items = lines.map(String::trim).filter(String::isNotEmpty)
     if (items.size <= 1) {
         items.firstOrNull()?.let { Text(it, style = BodyText, color = Slate600) }
         return
     }
     Column {
-        items.forEach { line ->
+        items.forEachIndexed { index, line ->
             Row {
-                Text("•", modifier = Modifier.width(19.5.dp).padding(start = 7.dp), style = BodyText, color = Slate600)
+                Text(if (numbered) "${index + 1}." else "•", modifier = Modifier.width(19.5.dp).padding(start = if (numbered) 2.dp else 7.dp), style = BodyText, color = Slate600)
                 Text(line, modifier = Modifier.weight(1f), style = BodyText, color = Slate600)
             }
         }
@@ -447,40 +456,60 @@ private fun DocumentItem(text: String) {
 
 /**
  * Timeline (Figma "Timeline Pendaftaran"): cincin r 6.5 stroke 3 #006398 dengan batang penghubung 3 dp.
- * Baris "Tahap: tanggal" menjadi satu tahap; baris lain ditampilkan sebagai catatan di bawahnya.
+ * Satu titik per tahap di data. Cincin tahap yang sudah dimulai per [today], beserta tahap sebelumnya, diisi penuh.
  */
 @Composable
-private fun Timeline(lines: List<String>) {
-    val steps = lines.mapNotNull { line -> line.split(": ", limit = 2).takeIf { it.size == 2 } }
-    val notes = lines.filter { it.isNotBlank() && it.split(": ", limit = 2).size < 2 }
+private fun Timeline(steps: List<TimelineStep>, today: LocalDate?) {
+    val lastReached = today?.let { lastReachedStep(steps, it) } ?: -1
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-        steps.forEachIndexed { index, (label, value) ->
+        steps.forEachIndexed { index, step ->
             Row(Modifier.height(IntrinsicSize.Min), horizontalArrangement = Arrangement.spacedBy(16.dp)) {
                 Canvas(Modifier.width(16.dp).fillMaxHeight()) {
                     val center = Offset(8.dp.toPx(), 10.dp.toPx())
-                    drawCircle(Ocean, radius = 6.5.dp.toPx(), center = center, style = Stroke(width = 3.dp.toPx()))
+                    if (index <= lastReached) {
+                        drawCircle(Ocean, radius = 8.dp.toPx(), center = center)
+                    } else {
+                        drawCircle(Ocean, radius = 6.5.dp.toPx(), center = center, style = Stroke(width = 3.dp.toPx()))
+                    }
                     if (index < steps.lastIndex) {
-                        // Batang dari 1 dp di bawah cincin sampai bawah baris (+ jarak 4 dp antartahap).
+                        // Batang masuk 1 dp ke tepi cincin ini dan cincin berikutnya (jarak antartahap 4 dp,
+                        // pusat cincin 10 dp dari atas baris, tepi luar 8 dp) supaya tersambung rapat.
                         val top = center.y + 7.dp.toPx()
+                        val nextRingTop = size.height + 4.dp.toPx() + center.y - 7.dp.toPx()
                         drawRoundRect(
                             Ocean,
                             topLeft = Offset(6.5.dp.toPx(), top),
-                            size = Size(3.dp.toPx(), size.height - top + 4.dp.toPx() - 2.dp.toPx()),
+                            size = Size(3.dp.toPx(), nextRingTop - top),
                             cornerRadius = CornerRadius.Zero,
                         )
                     }
                 }
                 Column(Modifier.padding(bottom = if (index < steps.lastIndex) 4.dp else 0.dp)) {
-                    Text(label, style = nunitoSans(13f, 19.5f, FontWeight.Bold), color = Navy)
-                    Text(value, style = nunitoSans(13f, 19.5f, FontWeight.Normal), color = Navy)
+                    Text(step.label, style = nunitoSans(13f, 19.5f, FontWeight.Bold), color = Navy)
+                    Text(stepDates(step), style = nunitoSans(13f, 19.5f, FontWeight.Normal), color = Navy)
+                    step.note?.let { Text(it, style = nunitoSans(13f, 19.5f, FontWeight.Normal), color = Slate600) }
                 }
             }
         }
-        notes.forEach { Text(it, style = BodyText, color = Slate600) }
     }
 }
 
-/** Banner CTA di akhir detail (Figma: maskot 74 × 105, tombol #006398 "Cari Mentor Esai"). */
+/** Indeks tahap terakhir yang sudah dimulai per [today], atau -1. */
+internal fun lastReachedStep(steps: List<TimelineStep>, today: LocalDate): Int =
+    steps.indexOfLast { !it.start.isAfter(today) }
+
+/** "9 Desember 2026", "1 - 7 Desember 2026", atau "28 November - 2 Desember 2026" (format Figma). */
+internal fun stepDates(step: TimelineStep): String {
+    val end = step.end ?: return step.start.format(DateFormat)
+    val startPattern = when {
+        step.start.year != end.year -> "d MMMM yyyy"
+        step.start.month != end.month -> "d MMMM"
+        else -> "d"
+    }
+    return step.start.format(DateTimeFormatter.ofPattern(startPattern, Indonesian)) + " - " + end.format(DateFormat)
+}
+
+/** Banner CTA di akhir tab Panduan (Figma: maskot 74 × 105, tombol #006398 "Cari Mentor"). */
 @Composable
 private fun MentorCtaBanner(onFindMentor: () -> Unit) {
     MascotInfoBanner(
@@ -495,7 +524,7 @@ private fun MentorCtaBanner(onFindMentor: () -> Unit) {
         descriptionColor = TextStrong,
         action = {
             PrimaryButton(
-                text = "Cari Mentor Esai",
+                text = "Cari Mentor",
                 onClick = onFindMentor,
                 containerColor = Ocean,
                 solidShadow = null,
@@ -516,6 +545,6 @@ private fun ScholarshipDetailPreview() {
         ScholarshipDetailState.Ready(scholarship)
     }
     ScholarHubTheme {
-        ScholarshipDetailContent(state, onBack = {}, onRetry = {}, relevancePercent = null, onFindMentor = {}, onTabSelect = {})
+        ScholarshipDetailContent(state, onBack = {}, onRetry = {}, relevancePercent = null, onFindMentor = {})
     }
 }

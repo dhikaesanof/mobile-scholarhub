@@ -32,6 +32,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.example.scholarhub.R
 import com.example.scholarhub.feature.payment.components.PayButton
+import com.example.scholarhub.ui.components.PrimaryButton
+import com.example.scholarhub.ui.theme.ErrorContainer
+import com.example.scholarhub.ui.theme.ErrorRed
 import com.example.scholarhub.ui.theme.ErrorContainerSoft
 import com.example.scholarhub.ui.theme.Navy
 import com.example.scholarhub.ui.theme.OnErrorContainer
@@ -61,22 +64,26 @@ private val InvoiceStyle = nunitoSans(10.308f, 14.431f, FontWeight.Bold, trackin
 private val TitleStyle = nunitoSans(18.554f, 25.512f, FontWeight.Bold)
 private val MentorStyle = nunitoSans(14.431f, 20.615f, FontWeight.Normal)
 private val SmallStyle = nunitoSans(12.369f, 16.492f, FontWeight.Normal)
+private val SuccessSoft = Color(0xFFD7F5E5)
+private val SuccessInk = Color(0xFF065F46)
 internal val BadgeStyle = nunitoSans(10.308f, 14.431f, InterSemiBold, tracking = 0.4123f)
 
-enum class TransactionStatus { Pending, Success, Cancelled }
+enum class TransactionStatus { Pending, Success, Failed }
 
 @Immutable
 data class TransactionUi(
     val id: String,
+    /** ID pesanan sesi; null untuk pembelian dokumen. */
+    val bookingId: String?,
     val invoice: String,
-    val serviceTitle: String,
-    val mentorName: String,
+    val title: String,
+    /** Baris di bawah judul, mis. "Mentor: Samantha Dira" atau "Premium · Akses selamanya". */
+    val subtitle: String,
+    @DrawableRes val subtitleIcon: Int,
     val amount: String,
     val status: TransactionStatus,
     /** Sisa waktu bayar untuk tagihan menunggu, misalnya "Sisa 14:31". */
     val timeLeft: String? = null,
-    /** Waktu transaksi selesai, misalnya "18 Okt 2026, 14:15 WIB". */
-    val paidAt: String? = null,
 )
 
 @Composable
@@ -102,6 +109,38 @@ private fun StatusPill(
     }
 }
 
+/** Badge "Menunggu Pembayaran" (Riwayat Transaksi dan Bayar dengan QRIS). */
+@Composable
+fun AwaitingPaymentBadge(modifier: Modifier = Modifier) {
+    StatusPill(
+        text = "Menunggu Pembayaran",
+        background = WarningContainerSoft,
+        content = OnWarningStrong,
+        modifier = modifier,
+        verticalPadding = 4.123.dp,
+        gap = 6.185.dp,
+        leading = { Box(Modifier.size(8.246.dp).clip(CircleShape).background(Warning)) },
+    )
+}
+
+/** Badge sisa waktu bayar, misalnya "Sisa 14:31". */
+@Composable
+fun TimeLeftBadge(text: String, modifier: Modifier = Modifier) {
+    StatusPill(
+        text = text,
+        background = ErrorContainerSoft,
+        content = OnErrorContainer,
+        modifier = modifier,
+        leading = {
+            Image(
+                painter = painterResource(R.drawable.ic_trx_timer),
+                contentDescription = null,
+                modifier = Modifier.size(width = 12.807.dp, height = 11.815.dp),
+            )
+        },
+    )
+}
+
 @Composable
 private fun IconText(@DrawableRes icon: Int, iconWidth: Dp, iconHeight: Dp, text: String) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.185.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -110,10 +149,13 @@ private fun IconText(@DrawableRes icon: Int, iconWidth: Dp, iconHeight: Dp, text
     }
 }
 
-/** Kartu tagihan menunggu pembayaran (Figma `Article - Pending Card`). */
+/**
+ * Kartu transaksi (Figma `Article - Pending Card` `215:6984`/`266:11853`/`266:11878`): badge status,
+ * invoice, judul, baris mentor/dokumen, total tagihan, lalu "Lanjut Bayar" (menunggu) atau "Lihat Invoice".
+ */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun PendingTransactionCard(item: TransactionUi, onPayClick: () -> Unit, modifier: Modifier = Modifier) {
+fun TransactionCard(item: TransactionUi, onAction: () -> Unit, modifier: Modifier = Modifier) {
     Column(
         modifier = modifier
             .fillMaxWidth()
@@ -127,123 +169,47 @@ fun PendingTransactionCard(item: TransactionUi, onPayClick: () -> Unit, modifier
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalArrangement = Arrangement.spacedBy(8.246.dp),
         ) {
-            StatusPill(
-                text = "Menunggu Pembayaran",
-                background = WarningContainerSoft,
-                content = OnWarningStrong,
-                verticalPadding = 4.123.dp,
-                gap = 6.185.dp,
-                leading = { Box(Modifier.size(8.246.dp).clip(CircleShape).background(Warning)) },
-            )
-            item.timeLeft?.let {
-                StatusPill(
-                    text = it,
-                    background = ErrorContainerSoft,
-                    content = OnErrorContainer,
-                    modifier = Modifier.align(Alignment.CenterVertically),
-                    leading = {
-                        Image(
-                            painter = painterResource(R.drawable.ic_trx_timer),
-                            contentDescription = null,
-                            modifier = Modifier.size(width = 12.807.dp, height = 11.815.dp),
-                        )
-                    },
-                )
+            when (item.status) {
+                TransactionStatus.Pending -> AwaitingPaymentBadge()
+                TransactionStatus.Success -> DotBadge("Pembayaran Berhasil", SuccessSoft, SuccessInk)
+                TransactionStatus.Failed -> DotBadge("Pembayaran Gagal", ErrorContainer, ErrorRed)
             }
+            item.timeLeft?.let { TimeLeftBadge(it, Modifier.align(Alignment.CenterVertically)) }
         }
         Column(modifier = Modifier.padding(bottom = 14.431.dp), verticalArrangement = Arrangement.spacedBy(5.566.dp)) {
             Text(text = item.invoice, style = InvoiceStyle, color = TextMuted)
-            Text(text = item.serviceTitle, style = TitleStyle, color = Navy)
-            IconText(R.drawable.ic_trx_person, 10.995.dp, 10.995.dp, "Mentor: ${item.mentorName}")
+            Text(text = item.title, style = TitleStyle, color = Navy)
+            IconText(item.subtitleIcon, 12.dp, 12.dp, item.subtitle)
         }
         HorizontalDivider(color = OutlineMist, thickness = 1.031.dp)
         Column(modifier = Modifier.padding(top = 14.431.dp)) {
             Text(text = "Total Tagihan", style = SmallStyle, color = TextMuted)
-            Text(
-                text = item.amount,
-                style = nunitoSans(20.615f, 28.862f, FontWeight.Bold, tracking = -0.5154f),
-                color = Navy,
+            Text(text = item.amount, style = nunitoSans(20.615f, 28.862f, FontWeight.Bold, tracking = -0.5154f), color = Navy)
+        }
+        if (item.status == TransactionStatus.Pending) {
+            PayButton(text = "Lanjut Bayar", onClick = onAction, modifier = Modifier.padding(top = 20.615.dp))
+        } else {
+            PrimaryButton(
+                text = "Lihat Invoice",
+                onClick = onAction,
+                modifier = Modifier.padding(top = 20.615.dp).fillMaxWidth().height(41.dp),
+                solidShadow = Color(0xFF08193D),
+                shadowOffset = 3.092.dp,
             )
         }
-        PayButton(text = "Lanjut Bayar", onClick = onPayClick, modifier = Modifier.padding(top = 20.615.dp))
     }
 }
 
-/** Kartu transaksi selesai (Figma `Article - Transaction Card`). */
 @Composable
-fun CompletedTransactionCard(item: TransactionUi, onDetailClick: () -> Unit, modifier: Modifier = Modifier) {
-    Column(
-        modifier = modifier
-            .fillMaxWidth()
-            .shadow(3.dp, TrxCardShape, ambientColor = TrxCardShadowSoft, spotColor = TrxCardShadowSoft)
-            .clip(TrxCardShape)
-            .background(SurfaceCard)
-            .padding(16.492.dp),
-        verticalArrangement = Arrangement.spacedBy(11.751.dp),
-    ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = item.invoice, style = InvoiceStyle.copy(letterSpacing = BadgeStyle.letterSpacing), color = TextMuted)
-            StatusPill(
-                text = "Berhasil",
-                background = SuccessContainer,
-                content = Success,
-                leading = {
-                    Image(
-                        painter = painterResource(R.drawable.ic_trx_success),
-                        contentDescription = null,
-                        modifier = Modifier.size(12.026.dp),
-                    )
-                },
-            )
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(3.608.dp)) {
-            Text(text = item.serviceTitle, style = TitleStyle, color = Navy)
-            IconText(R.drawable.ic_trx_mentor, 15.118.dp, 12.369.dp, "Mentor: ${item.mentorName}")
-            item.paidAt?.let {
-                Text(text = it, modifier = Modifier.padding(top = 2.062.dp), style = SmallStyle, color = TextMuted)
-            }
-        }
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .clip(RoundedCornerShape(8.246.dp))
-                .background(SkySoft)
-                .padding(start = 12.369.dp, end = 12.369.dp, top = 8.865.dp, bottom = 8.246.dp),
-        ) {
-            Text(text = "Total Bayar", style = SmallStyle, color = TextMuted)
-            Text(
-                text = item.amount,
-                style = nunitoSans(14.431f, 20.615f, InterSemiBold, tracking = 0.1443f),
-                color = Navy,
-            )
-        }
-        Row(
-            modifier = Modifier
-                .padding(top = 4.742.dp)
-                .fillMaxWidth()
-                .height(37.dp)
-                .clip(RoundedCornerShape(12.dp))
-                .background(OutlineSky)
-                .clickable(onClick = onDetailClick),
-            horizontalArrangement = Arrangement.spacedBy(4.123.dp, Alignment.CenterHorizontally),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Image(
-                painter = painterResource(R.drawable.ic_trx_eye),
-                contentDescription = null,
-                modifier = Modifier.size(width = 15.118.dp, height = 10.308.dp),
-            )
-            Text(
-                text = "Detail Sesi",
-                style = nunitoSans(12.369f, 16.492f, InterSemiBold, tracking = 0.2474f),
-                color = TextStrong,
-            )
-        }
-    }
+private fun DotBadge(text: String, background: Color, content: Color) {
+    StatusPill(
+        text = text,
+        background = background,
+        content = content,
+        verticalPadding = 4.123.dp,
+        gap = 6.185.dp,
+        leading = { Box(Modifier.size(8.246.dp).clip(CircleShape).background(content)) },
+    )
 }
 
 @Preview(showBackground = true, backgroundColor = 0xFFF1F1F1, widthDp = 402)
@@ -251,29 +217,12 @@ fun CompletedTransactionCard(item: TransactionUi, onDetailClick: () -> Unit, mod
 private fun TransactionCardsPreview() {
     ScholarHubTheme {
         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            PendingTransactionCard(SampleTransactions[0], onPayClick = {})
-            CompletedTransactionCard(SampleTransactions[1], onDetailClick = {})
+            TransactionStatus.entries.forEach { status ->
+                TransactionCard(
+                    TransactionUi("1", null, "INV/SH/20261121/089", "Review Esai Beasiswa", "Mentor: Samantha Dira", R.drawable.ic_trx_person, "Rp 50.000", status, if (status == TransactionStatus.Pending) "Sisa 14:31" else null),
+                    onAction = {},
+                )
+            }
         }
     }
 }
-
-val SampleTransactions = listOf(
-    TransactionUi(
-        id = "INV/SCH-202610/089",
-        invoice = "INV/SCH-202610/089",
-        serviceTitle = "Simulasi Wawancara",
-        mentorName = "Samantha Dira, S.Pd",
-        amount = "Rp 150.000",
-        status = TransactionStatus.Pending,
-        timeLeft = "Sisa 14:31",
-    ),
-    TransactionUi(
-        id = "INV/SCH-202610/062",
-        invoice = "INV/SCH-202610/062",
-        serviceTitle = "Review Esai",
-        mentorName = "Kevin Sanjaya",
-        amount = "Rp 85.000",
-        status = TransactionStatus.Success,
-        paidAt = "18 Okt 2026, 14:15 WIB",
-    ),
-)
