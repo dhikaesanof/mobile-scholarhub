@@ -47,9 +47,6 @@ import com.example.scholarhub.ui.theme.SkyBorder
 import com.example.scholarhub.ui.theme.SkySoft
 import com.example.scholarhub.ui.theme.SurfaceCard
 import com.example.scholarhub.ui.theme.TextVariant
-import androidx.compose.foundation.layout.width
-import androidx.compose.ui.graphics.Color
-import com.example.scholarhub.ui.theme.ErrorRed
 
 @Immutable
 data class ScholarshipTagUi(val label: String, @DrawableRes val icon: Int)
@@ -191,7 +188,7 @@ fun ScholarshipCarouselCard(
 ) {
     Column(
         modifier = modifier
-            .size(width = 255.dp, height = 185.dp)
+            .size(width = 255.dp, height = 166.dp)
             .clip(CardShape)
             .background(SurfaceCard)
             .clickable(onClick = onClick)
@@ -221,20 +218,21 @@ fun ScholarshipCarouselCard(
             maxLines = 2,
         )
         HorizontalDivider(color = DividerGray, thickness = 0.5.dp)
-        // Figma `182:6158`: lokasi rata kiri, tenggat dalam pill merah #FFE9E6 berikon timer.
         Row(
-            modifier = Modifier.fillMaxWidth().padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(74.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(text = item.location, modifier = Modifier.weight(1f), maxLines = 1, style = MaterialTheme.typography.labelSmall, color = Navy)
-            Row(
-                modifier = Modifier.width(95.dp).clip(RoundedCornerShape(20.dp)).background(Color(0xFFFFE9E6)).padding(vertical = 4.dp),
-                horizontalArrangement = Arrangement.spacedBy(7.dp, Alignment.CenterHorizontally),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                Image(painterResource(R.drawable.ic_home_timer), null, Modifier.size(width = 9.75.dp, height = 11.375.dp))
-                Text(text = item.daysLeft, maxLines = 1, softWrap = false, style = MaterialTheme.typography.labelSmall, color = ErrorRed)
+            listOf(item.location, item.daysLeft).forEach {
+                Text(
+                    text = it,
+                    modifier = Modifier.weight(1f),
+                    textAlign = TextAlign.Center,
+                    maxLines = 1,
+                    softWrap = false,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = Navy,
+                )
             }
         }
     }

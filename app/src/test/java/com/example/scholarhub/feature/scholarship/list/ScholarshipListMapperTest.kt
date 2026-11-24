@@ -1,7 +1,6 @@
 package com.example.scholarhub.feature.scholarship.list
 
 import com.example.scholarhub.domain.scholarship.EligibilityRule
-import com.example.scholarhub.domain.scholarship.FundingType
 import com.example.scholarhub.domain.scholarship.RuleOperator
 import com.example.scholarhub.domain.scholarship.RuleValue
 import com.example.scholarhub.domain.scholarship.Scholarship
@@ -40,24 +39,19 @@ class ScholarshipListMapperTest {
     )
 
     private fun scholarship(
-        name: String = "Beasiswa Uji",
-        provider: String = "BAZNAS RI",
         status: String = "open_by_schedule",
-        opensOn: String? = null,
         closesOn: String? = "2026-11-30",
         closesAt: String? = null,
         common: EligibilityRule? = null,
         tracks: List<ScholarshipTrack> = emptyList(),
     ) = Scholarship(
         id = "SHX",
-        name = name,
-        provider = provider,
+        name = "Beasiswa Uji",
+        provider = "BAZNAS RI",
         period = "2026/2027",
-        studyCountry = "Indonesia",
-        fundingType = FundingType.Full,
         registration = ScholarshipRegistration(
             statusAtSnapshot = status,
-            opensOn = opensOn?.let(LocalDate::parse),
+            opensOn = null,
             closesOn = closesOn?.let(LocalDate::parse),
             closesAtLocal = closesAt?.let(LocalTime::parse),
             timeZone = jakarta,
@@ -111,8 +105,8 @@ class ScholarshipListMapperTest {
                 ScholarshipTrack("b", "B", cond("gpa", RuleOperator.GTE, 3.3), emptyList()),
             ),
         ).toCatalogItem(at("2026-11-20"))
-        assertEquals(listOf("Fully Funded", "Semester 1-5", "IPK >= 3.30"), item.card.tags.map { it.label })
-        assertEquals("Jenjang D4 / S1 • Dalam Negeri", item.card.degreeInfo)
+        assertEquals(listOf("D4, S1", "Semester 1-5", "IPK >= 3.30"), item.card.tags.map { it.label })
+        assertEquals("Jenjang D4 / S1 • Periode 2026/2027", item.card.degreeInfo)
         assertNull(item.card.relevance)
     }
 
@@ -121,8 +115,8 @@ class ScholarshipListMapperTest {
         val item = scholarship(
             common = EligibilityRule.All(listOf(cond("semester", RuleOperator.IN, 4, 6), cond("gpa", RuleOperator.GT, 3))),
         ).toCatalogItem(at("2026-11-20"))
-        assertEquals(listOf("Fully Funded", "Semester 4, 6", "IPK > 3.00"), item.card.tags.map { it.label })
-        assertEquals("Dalam Negeri", item.card.degreeInfo)
+        assertEquals(listOf("Semester 4, 6", "IPK > 3.00"), item.card.tags.map { it.label })
+        assertEquals("Periode 2026/2027", item.card.degreeInfo)
     }
 
     @Test
@@ -135,44 +129,7 @@ class ScholarshipListMapperTest {
             scholarship(closesOn = "2026-11-23").toCatalogItem(now),
         ).sortedForCatalog()
         assertEquals(listOf("3 Hari Lagi", "10 Hari Lagi", "Ditutup", "Arsip"), items.map { it.card.deadline })
-    }
-
-    @Test
-    fun notYetOpen_isUpcoming() {
-        val item = scholarship(opensOn = "2026-11-25", closesOn = "2026-12-10").toCatalogItem(at("2026-11-20"))
-        assertEquals(RegistrationState.Upcoming, item.state)
-        assertEquals("Segera Dibuka", item.card.deadline)
-        assertEquals(StatusFilter.Upcoming, item.statusFilter)
-        // Pada hari buka statusnya sudah dibuka.
-        assertEquals(RegistrationState.Open, scholarship(opensOn = "2026-11-20").toCatalogItem(at("2026-11-20")).state)
-    }
-
-    @Test
-    fun filterCatalog_searchesNameAndProvider_andCombinesCategories() {
-        val now = at("2026-11-20")
-        val s1 = cond("degree", RuleOperator.IN, "S1")
-        val d4 = cond("degree", RuleOperator.EQ, "D4")
-        val items = listOf(
-            scholarship(name = "Hana Bank", provider = "KEB Hana", common = s1).toCatalogItem(now),
-            scholarship(name = "TELADAN", provider = "Tanoto Foundation", common = d4).toCatalogItem(now),
-            scholarship(name = "Arsip S1", status = "archived", closesOn = null, common = s1).toCatalogItem(now),
-            scholarship(name = "Tanpa Jenjang").toCatalogItem(now),
-        )
-        fun names(q: String = "", f: CatalogFilters = CatalogFilters()) = items.filterCatalog(q, f).map { it.card.title }
-
-        assertEquals(4, names().size)
-        assertEquals(listOf("Hana Bank"), names("  hana "))
-        assertEquals(listOf("TELADAN"), names("tanoto")) // penyelenggara
-        assertEquals(listOf("Hana Bank", "Arsip S1"), names(f = CatalogFilters(degrees = setOf("S1"))))
-        // OR dalam satu kategori; item tanpa data jenjang tidak lolos filter jenjang.
-        assertEquals(listOf("Hana Bank", "TELADAN", "Arsip S1"), names(f = CatalogFilters(degrees = setOf("S1", "D4"))))
-        // AND antarkategori: arsip dihitung ditutup.
-        assertEquals(listOf("Arsip S1"), names(f = CatalogFilters(degrees = setOf("S1"), statuses = setOf(StatusFilter.Closed))))
-        assertEquals(listOf("Hana Bank"), names("bank", CatalogFilters(degrees = setOf("S1"), statuses = setOf(StatusFilter.Open))))
-        assertEquals(2, CatalogFilters(degrees = setOf("S1"), statuses = setOf(StatusFilter.Open)).count)
-        assertEquals(4, names(f = CatalogFilters(locations = setOf(StudyLocation.Domestic), fundings = setOf(FundingType.Full))).size)
-        assertEquals(0, names(f = CatalogFilters(locations = setOf(StudyLocation.Abroad))).size)
-        assertEquals(0, names(f = CatalogFilters(fundings = setOf(FundingType.Partial))).size)
+        assertEquals(2, items.count { it.isActive })
     }
 
     @Test

@@ -1,7 +1,6 @@
 package com.example.scholarhub.domain.scholarmatch
 
 import com.example.scholarhub.domain.scholarship.EligibilityRule
-import com.example.scholarhub.domain.scholarship.FundingType
 import com.example.scholarhub.domain.scholarship.PreferenceOption
 import com.example.scholarhub.domain.scholarship.RuleOperator
 import com.example.scholarhub.domain.scholarship.RuleValue
@@ -57,14 +56,9 @@ class ScholarshipMatcherTest {
         manualChecks: List<String> = emptyList(),
         status: String = "open_by_schedule",
         benefits: List<ScholarshipBenefit> = emptyList(),
-        opensOn: String? = null,
-        closesOn: String = "2026-11-30",
     ) = Scholarship(
         id = id, name = "Uji $id", provider = "Penyelenggara", period = "2026",
-        studyCountry = "Indonesia", fundingType = FundingType.Partial,
-        registration = ScholarshipRegistration(
-            status, opensOn?.let(LocalDate::parse), LocalDate.parse(closesOn), null, ZoneId.of("Asia/Jakarta"), null,
-        ),
+        registration = ScholarshipRegistration(status, null, LocalDate.parse("2026-11-30"), null, ZoneId.of("Asia/Jakarta"), null),
         summary = ScholarshipSummary(about = "", benefits = benefits, coverage = emptyList()),
         requirements = emptyList(),
         guide = ScholarshipGuide(emptyList(), null),
@@ -72,9 +66,7 @@ class ScholarshipMatcherTest {
         sources = ScholarshipSources("", emptyList(), "", null),
     )
 
-    private val today = LocalDate.parse("2026-11-23")
-
-    private fun single(s: Scholarship, input: MatchInput) = matcher.match(listOf(s), input, options, today).single()
+    private fun single(s: Scholarship, input: MatchInput) = matcher.match(listOf(s), input, options).single()
 
     @Test
     fun gpaBoundaries_gteIncludesBound_gtExcludesIt() {
@@ -104,12 +96,12 @@ class ScholarshipMatcherTest {
     @Test
     fun anyGroup_oneSatisfiedAlternativeIsEnough() {
         val rule = EligibilityRule.AnyOf(listOf(cond("campusType", RuleOperator.EQ, "PTN"), cond("gpa", RuleOperator.GTE, 3.9)))
-        assertEquals(MatchStatus.Eligible, single(scholarship(common = rule), MatchInput(campusType = "PTN")).status)
+        assertEquals(MatchStatus.Eligible, single(scholarship(common = rule), MatchInput(campusType = CampusTypeAnswer.PTN)).status)
         // PTS gagal, IPK belum diisi → belum diketahui, bukan gagal.
-        assertEquals(MatchStatus.NeedsReview, single(scholarship(common = rule), MatchInput(campusType = "PTS")).status)
+        assertEquals(MatchStatus.NeedsReview, single(scholarship(common = rule), MatchInput(campusType = CampusTypeAnswer.PTS)).status)
         assertEquals(
             MatchStatus.NotEligible,
-            single(scholarship(common = rule), MatchInput(campusType = "PTS", gpa = BigDecimal("3.0"))).status,
+            single(scholarship(common = rule), MatchInput(campusType = CampusTypeAnswer.PTS, gpa = BigDecimal("3.0"))).status,
         )
     }
 
@@ -122,7 +114,7 @@ class ScholarshipMatcherTest {
                 ScholarshipTrack("elevate", "Elevate", cond("gpa", RuleOperator.GTE, 3.0), listOf("Cek SKTM")),
             ),
         )
-        val result = single(s, MatchInput(degree = "S1", gpa = BigDecimal("3.2")))
+        val result = single(s, MatchInput(degree = DegreeAnswer.Bachelor, gpa = BigDecimal("3.2")))
         assertEquals(listOf(MatchStatus.NotEligible, MatchStatus.NeedsReview), result.tracks.map { it.status })
         assertEquals("elevate", result.bestTrack.trackId)
         assertEquals(MatchStatus.NeedsReview, result.status)
@@ -140,37 +132,20 @@ class ScholarshipMatcherTest {
     }
 
     @Test
-    fun semesterBounds_andExactCampusAndMajor() {
-        val s = scholarship(
-            common = EligibilityRule.All(
-                listOf(
-                    cond("semester", RuleOperator.GTE, 3),
-                    cond("semester", RuleOperator.LTE, 5),
-                    cond("campus", RuleOperator.IN, "Universitas Brawijaya", "Universitas Gadjah Mada"),
-                    cond("major", RuleOperator.IN, "Informatika", "Statistika"),
-                ),
-            ),
-        )
-        val ok = MatchInput(semester = 5, campus = "Universitas Gadjah Mada", major = "Statistika")
-        assertEquals(MatchStatus.Eligible, single(s, ok).status)
-        assertEquals(MatchStatus.NotEligible, single(s, ok.copy(semester = 6)).status)
-        assertEquals(MatchStatus.NotEligible, single(s, ok.copy(campus = "Kampus lain")).status)
-        assertEquals(MatchStatus.NotEligible, single(s, ok.copy(major = "Manajemen")).status)
+    fun rangeAnswers_mixedResultIsUnknown() {
+        val d4Only = scholarship(common = cond("degree", RuleOperator.EQ, "D4"))
+        assertEquals(MatchStatus.NeedsReview, single(d4Only, MatchInput(degree = DegreeAnswer.Vocational)).status)
+        val sem = scholarship(common = EligibilityRule.All(listOf(cond("semester", RuleOperator.GTE, 1), cond("semester", RuleOperator.LTE, 5))))
+        assertEquals(MatchStatus.Eligible, single(sem, MatchInput(semester = SemesterAnswer.Sem3To4)).status)
+        assertEquals(MatchStatus.NeedsReview, single(sem, MatchInput(semester = SemesterAnswer.Sem5To6)).status)
+        assertEquals(MatchStatus.NotEligible, single(sem, MatchInput(semester = SemesterAnswer.Sem7Plus)).status)
     }
 
     @Test
-    fun noGpa_makesGpaRuleUnknown_notFailed() {
-        val s = scholarship(common = cond("gpa", RuleOperator.GTE, 3.5))
-        assertEquals(MatchStatus.NeedsReview, single(s, MatchInput(gpa = BigDecimal("2.0"), noGpa = true)).status)
-    }
-
-    @Test
-    fun otherScholarship_yesOnlyFailsStrictRule_tuitionOnlyRuleBecomesUnknown() {
-        val strict = scholarship(common = cond("otherScholarship", RuleOperator.EQ, false))
-        val tuitionOnly = scholarship(common = cond("otherTuitionAid", RuleOperator.EQ, false))
-        assertEquals(MatchStatus.NotEligible, single(strict, MatchInput(receivingScholarship = true)).status)
-        assertEquals(MatchStatus.NeedsReview, single(tuitionOnly, MatchInput(receivingScholarship = true)).status)
-        assertEquals(MatchStatus.Eligible, single(tuitionOnly, MatchInput(receivingScholarship = false)).status)
+    fun campusFreeText_matchesCodeInParentheses_otherwiseUnknown() {
+        val s = scholarship(common = cond("campus", RuleOperator.IN, "UI", "ITB"))
+        assertEquals(MatchStatus.Eligible, single(s, MatchInput(campusName = "Universitas Indonesia (UI)")).status)
+        assertEquals(MatchStatus.NeedsReview, single(s, MatchInput(campusName = "Universitas Gadjah Mada")).status)
     }
 
     @Test
@@ -205,14 +180,10 @@ class ScholarshipMatcherTest {
                 scholarship("B", benefits = listOf(benefit("mentoring"))),
                 scholarship("C", status = "archived"),
                 scholarship("D"),
-                scholarship("E", closesOn = "2026-11-22"), // sudah tutup per tanggal
-                scholarship("F", opensOn = "2026-11-24"), // belum dibuka
-                scholarship("G", closesOn = "2026-11-23"), // hari terakhir
             ),
             MatchInput(gpa = BigDecimal("3.5"), priorities = setOf("mentoring")),
             options,
-            today,
         )
-        assertEquals(listOf("B", "D", "G", "A"), results.map { it.scholarship.id })
+        assertEquals(listOf("B", "D", "A"), results.map { it.scholarship.id })
     }
 }
