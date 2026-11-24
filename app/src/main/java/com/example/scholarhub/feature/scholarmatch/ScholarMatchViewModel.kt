@@ -7,6 +7,7 @@ import com.example.scholarhub.domain.scholarmatch.ScholarshipMatch
 import com.example.scholarhub.domain.scholarmatch.ScholarshipMatcher
 import com.example.scholarhub.domain.scholarship.PreferenceOption
 import com.example.scholarhub.domain.scholarship.ScholarshipRepository
+import com.example.scholarhub.data.user.UserRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
@@ -33,6 +34,7 @@ sealed interface ScholarMatchResultState {
 /** Dipakai bersama oleh form dan hasil ScholarMatch selama alurnya aktif. Jawaban hanya disimpan di memori. */
 class ScholarMatchViewModel(
     private val repository: ScholarshipRepository,
+    private val userRepository: UserRepository = UserRepository(),
     private val matcher: ScholarshipMatcher = ScholarshipMatcher(),
 ) : ViewModel() {
     private val form = MutableStateFlow(ScholarMatchFormState())
@@ -43,6 +45,24 @@ class ScholarMatchViewModel(
 
     init {
         loadOptions()
+        loadSavedInput()
+    }
+
+    private fun loadSavedInput() {
+        viewModelScope.launch {
+            val savedInput = userRepository.getMatchInput()
+            if (savedInput != null) {
+                // Konversi angka desimal GPA agar gpaText muncul dengan benar
+                val gpaText = savedInput.gpa?.toString() ?: ""
+                form.update { 
+                    it.copy(
+                        input = savedInput, 
+                        gpaText = gpaText,
+                        profileSaved = true
+                    ) 
+                }
+            }
+        }
     }
 
     fun loadOptions() {
@@ -93,6 +113,9 @@ class ScholarMatchViewModel(
         val input = form.value.input
         result.value = ScholarMatchResultState.Loading
         viewModelScope.launch {
+            // Simpan input user ke Firebase sebelum menghitung hasil
+            userRepository.saveMatchInput(input)
+            
             result.value = repository.getCatalog().fold(
                 onSuccess = { catalog ->
                     ScholarMatchResultState.Ready(
