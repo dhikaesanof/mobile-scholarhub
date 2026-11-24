@@ -161,6 +161,9 @@ class MentoringStore(private val clock: Clock = Clock.systemDefaultZone()) {
 
     fun markPaid(id: String) = edit(id) { it.copy(payment = PaymentStatus.Paid, paidAt = now()) }
 
+    /** Mentee membatalkan sebelum bayar: pesanan gagal dan slotnya langsung bisa dipesan lagi. */
+    fun cancel(id: String) = edit(id) { if (it.payment == PaymentStatus.Pending) it.copy(payment = PaymentStatus.Failed) else it }
+
     fun confirm(id: String) = edit(id) { it.copy(confirmed = true) }
 
     fun report(id: String, report: SessionReport) = edit(id) { it.copy(report = report) }

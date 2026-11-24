@@ -2,7 +2,6 @@ package com.example.scholarhub.feature.payment
 
 import android.content.ContentValues
 import android.content.Context
-import android.graphics.BitmapFactory
 import android.os.Environment
 import android.provider.MediaStore
 import androidx.compose.foundation.Image
@@ -14,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -54,6 +54,13 @@ import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asAndroidBitmap
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.material3.CircularProgressIndicator
+import com.example.scholarhub.ui.theme.SkySoft
 
 /** Judul halaman SemiBold 23 / 1.67 (Figma "Selesaikan pembayaran", "Pembayaran berhasil", "Invoice"). */
 internal val PageTitleSemi = nunitoSans(23f, 38.4f, FontWeight.SemiBold)
@@ -76,8 +83,8 @@ data class PaymentOrder(
 )
 
 /**
- * Bayar dengan QRIS (Figma `218:3628` sesi, `255:10365` dokumen). Tagihan berlaku 15 menit;
- * [onCheckStatus] membuka hasil berhasil, atau gagal jika waktunya habis.
+ * Bayar dengan QRIS (Figma `218:3628` sesi, `255:10365` dokumen). Tagihan berlaku 15 menit. QR berasal dari Midtrans
+ * Sandbox ([MidtransQrisRoute]); [qr] null selama tagihan dibuat.
  */
 @Composable
 fun QrisPaymentScreen(
@@ -86,9 +93,15 @@ fun QrisPaymentScreen(
     onBack: () -> Unit,
     onHome: () -> Unit,
     onCheckStatus: () -> Unit,
+    qr: ImageBitmap? = null,
+    qrError: String? = null,
+    onRetryQr: () -> Unit = {},
+    checking: Boolean = false,
+    snackbar: SnackbarHostState = remember { SnackbarHostState() },
+    /** Menyalin URL gambar QR untuk QRIS Simulator Midtrans (khusus sandbox). */
+    onCopyQrLink: (() -> Unit)? = null,
 ) {
     val remaining = Duration.between(now, order.payBefore)
-    val snackbar = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
 
@@ -118,7 +131,20 @@ fun QrisPaymentScreen(
                     TimeLeftBadge("Sisa ${remaining.countdown(withHours = false)}")
                 }
                 Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Image(painterResource(R.drawable.payment_qris), "Kode QRIS ${rupiah(order.price)}", Modifier.size(239.dp).clip(CardShape))
+                    Box(Modifier.size(239.dp).clip(CardShape).background(SkySoft), contentAlignment = Alignment.Center) {
+                        when {
+                            qr != null -> Image(qr, "Kode QRIS ${rupiah(order.price)}", Modifier.size(239.dp))
+                            qrError != null -> Column(
+                                Modifier.padding(16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(8.dp),
+                            ) {
+                                Text(qrError, style = Caption, color = Navy, textAlign = TextAlign.Center)
+                                OutlineButton("Coba Lagi", onClick = onRetryQr)
+                            }
+                            else -> CircularProgressIndicator(color = Navy)
+                        }
+                    }
                     Text(
                         rupiah(order.price),
                         Modifier.fillMaxWidth(),
@@ -132,15 +158,24 @@ fun QrisPaymentScreen(
                     color = Navy,
                 )
                 OutlineButton("Unduh QRIS", onClick = {
-                    val saved = saveQrisToGallery(context, order.invoice)
-                    scope.launch { snackbar.showSnackbar(if (saved) "QRIS tersimpan di Galeri." else "QRIS gagal disimpan.") }
+                    val saved = qr != null && saveQrisToGallery(context, order.invoice, qr)
+                    scope.launch { snackbar.showSnackbar(if (saved) "QRIS tersimpan di Galeri." else "QRIS belum tersedia.") }
                 })
+                onCopyQrLink?.let {
+                    Text(
+                        "Salin link QR untuk QRIS Simulator (sandbox)",
+                        Modifier.fillMaxWidth().clickable(onClick = it).padding(vertical = 4.dp),
+                        style = Caption.copy(textAlign = TextAlign.Center),
+                        color = Steel,
+                    )
+                }
             }
             Column(Modifier.fillMaxWidth().cardSurface(shape = CardShape).padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text("Sudah membayar? Periksa status untuk melihat hasil verifikasi.", style = Caption, color = Steel)
                 PrimaryButton(
-                    text = "Periksa Status Pembayaran",
+                    text = if (checking) "Memeriksa..." else "Periksa Status Pembayaran",
                     onClick = onCheckStatus,
+                    enabled = !checking && qr != null,
                     modifier = Modifier.fillMaxWidth().height(48.dp),
                     solidShadow = null,
                 )
@@ -163,8 +198,8 @@ fun Booking.toPaymentOrder() = PaymentOrder(
 )
 
 /** Menyimpan gambar QRIS ke Pictures/ScholarHub lewat MediaStore (tanpa izin penyimpanan di API 29+). */
-private fun saveQrisToGallery(context: Context, invoice: String): Boolean = try {
-    val bitmap = BitmapFactory.decodeResource(context.resources, R.drawable.payment_qris)
+private fun saveQrisToGallery(context: Context, invoice: String, qr: ImageBitmap): Boolean = try {
+    val bitmap = qr.asAndroidBitmap()
     val values = ContentValues().apply {
         put(MediaStore.Images.Media.DISPLAY_NAME, "QRIS-${invoice.replace('/', '-')}.png")
         put(MediaStore.Images.Media.MIME_TYPE, "image/png")
@@ -174,4 +209,27 @@ private fun saveQrisToGallery(context: Context, invoice: String): Boolean = try 
     uri != null && context.contentResolver.openOutputStream(uri)?.use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) } == true
 } catch (_: Exception) {
     false
+}
+
+/** Konfirmasi saat keluar dari QRIS sebelum bayar: lepas slot sekarang, atau tahan sampai batas bayar habis. */
+@Composable
+fun CancelOrderDialog(onPayLater: () -> Unit, onCancel: () -> Unit, onDismiss: () -> Unit) {
+    androidx.compose.material3.AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = com.example.scholarhub.ui.theme.SurfaceCard,
+        title = { Text("Batalkan pesanan?", style = MaterialTheme.typography.titleMedium, color = Navy) },
+        text = {
+            Text(
+                "Jika dibatalkan, slot jam ini dilepas dan bisa dipesan orang lain. Pilih \"Bayar nanti\" untuk menahan slot sampai batas bayar habis; pembayaran bisa dilanjutkan dari Riwayat Transaksi.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = Steel,
+            )
+        },
+        confirmButton = {
+            PrimaryButton(text = "Batalkan", onClick = onCancel, modifier = Modifier.height(44.dp), solidShadow = null)
+        },
+        dismissButton = {
+            OutlineButton("Bayar nanti", onClick = onPayLater, modifier = Modifier.width(120.dp))
+        },
+    )
 }

@@ -118,9 +118,11 @@ fun ScholarshipDetailScreen(
     onBack: () -> Unit,
     scholarMatchRelevancePercent: Int? = null,
     onFindMentor: () -> Unit = {},
+    favorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
 ) {
     val state by model.uiState.collectAsState()
-    ScholarshipDetailContent(state, onBack, model::load, scholarMatchRelevancePercent, onFindMentor)
+    ScholarshipDetailContent(state, onBack, model::load, scholarMatchRelevancePercent, onFindMentor, favorite, onToggleFavorite)
 }
 
 @Composable
@@ -130,6 +132,8 @@ private fun ScholarshipDetailContent(
     onRetry: () -> Unit,
     relevancePercent: Int?,
     onFindMentor: () -> Unit,
+    favorite: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
 ) {
     val uriHandler = LocalUriHandler.current
     val snackbar = remember { SnackbarHostState() }
@@ -160,9 +164,7 @@ private fun ScholarshipDetailContent(
                             .padding(start = 23.dp, end = 23.dp, top = 16.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        // shortcut: favorit hanya tersimpan selama layar terbuka; simpan permanen bersama fitur Favorit/Bookmark.
-                        var favorite by rememberSaveable(scholarship.id) { mutableStateOf(false) }
-                        Hero(scholarship, relevancePercent, favorite) { favorite = !favorite }
+                        Hero(scholarship, relevancePercent, favorite, onToggleFavorite)
                         DetailTabs(tab) { tab = it }
                         // Figma: portal resmi tampil di ketiga tab, tepat di bawah tab.
                         scholarship.registration.applicationUrl?.takeIf { it.isNotBlank() }?.let { url ->

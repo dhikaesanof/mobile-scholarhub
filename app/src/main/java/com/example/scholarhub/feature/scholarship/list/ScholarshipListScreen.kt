@@ -64,12 +64,14 @@ fun ScholarshipListRoute(
     onOpenNotifications: () -> Unit = {},
     onTabSelect: (MenteeNavTab) -> Unit = {},
     onOpenTransactions: () -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
 ) {
     val state by viewModel.uiState.collectAsState()
     ScholarshipListScreen(
         state = state,
         onOpenDetail = onOpenDetail,
         onRetry = viewModel::load,
+        onOpenFavorites = onOpenFavorites,
         onOpenTransactions = onOpenTransactions,
         onOpenNotifications = onOpenNotifications,
         onTabSelect = onTabSelect,
@@ -88,6 +90,7 @@ fun ScholarshipListScreen(
     onOpenNotifications: () -> Unit = {},
     onTabSelect: (MenteeNavTab) -> Unit = {},
     onOpenTransactions: () -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
 ) {
     var query by rememberSaveable { mutableStateOf("") }
     var filters by remember { mutableStateOf(CatalogFilters()) }
@@ -97,7 +100,7 @@ fun ScholarshipListScreen(
 
     Scaffold(
         containerColor = Base,
-        topBar = { ScholarHubTopBar(onArticleClick = onOpenTransactions, onNotificationClick = onOpenNotifications) },
+        topBar = { ScholarHubTopBar(onArticleClick = onOpenTransactions, onNotificationClick = onOpenNotifications, onBookmarkClick = onOpenFavorites) },
         bottomBar = { MenteeBottomBar(currentTab = MenteeNavTab.Scholarship, onTabSelect = onTabSelect) },
     ) { padding ->
         Column(

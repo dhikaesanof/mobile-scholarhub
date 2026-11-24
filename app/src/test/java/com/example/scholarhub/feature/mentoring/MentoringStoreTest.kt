@@ -26,6 +26,17 @@ class MentoringStoreTest {
     }
 
     @Test
+    fun cancelledBooking_failsAtOnce_butPaidOneStaysPaid() {
+        val b = newBooking()
+        store.cancel(b.id)
+        assertEquals(PaymentStatus.Failed, store.find(b.id)!!.paymentStatusAt(t0))
+        val paid = newBooking(t0.plusDays(3))
+        store.markPaid(paid.id)
+        store.cancel(paid.id)
+        assertEquals(PaymentStatus.Paid, store.find(paid.id)!!.payment)
+    }
+
+    @Test
     fun paidSession_phasesFollowTime() {
         val start = t0.plusDays(2)
         store.markPaid(newBooking(start).id)

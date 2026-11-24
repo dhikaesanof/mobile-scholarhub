@@ -28,10 +28,10 @@ import com.example.scholarhub.feature.tracker.trackedStage
 import com.example.scholarhub.domain.scholarship.Scholarship
 import java.time.LocalDate
 import com.example.scholarhub.feature.mentoring.PaymentStatus
-import com.example.scholarhub.feature.mentoring.invoiceTime
 import com.example.scholarhub.feature.mentoring.paymentStatusAt
+import com.example.scholarhub.feature.payment.CancelOrderDialog
+import com.example.scholarhub.feature.mentoring.invoiceTime
 import com.example.scholarhub.feature.mentoring.rupiah
-import com.example.scholarhub.feature.payment.QrisPaymentScreen
 import com.example.scholarhub.feature.mentor.MentorBookedSessionsScreen
 import com.example.scholarhub.feature.mentor.MentorHomeScreen
 import com.example.scholarhub.feature.mentor.MentorNavTab
@@ -57,6 +57,11 @@ import com.example.scholarhub.feature.scholarmatch.ScholarMatchResultState
 import com.example.scholarhub.feature.scholarmatch.ScholarMatchViewModel
 import com.example.scholarhub.feature.scholarship.detail.ScholarshipDetailViewModel
 import com.example.scholarhub.feature.scholarship.list.ScholarshipListRoute
+import com.example.scholarhub.feature.scholarship.list.sortedForCatalog
+import com.example.scholarhub.feature.scholarship.list.toCatalogItem
+import com.example.scholarhub.feature.scholarship.favorites.FavoriteScholarshipsScreen
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.update
 import com.example.scholarhub.feature.scholarship.list.ScholarshipListViewModel
 import com.example.scholarhub.ui.components.MenteeNavTab
 import com.example.scholarhub.feature.notifications.SampleMentorNotificationGroups
@@ -81,6 +86,8 @@ import com.example.scholarhub.data.auth.UserRole
 import com.example.scholarhub.feature.home.SampleHomeUiState
 import kotlinx.coroutines.launch
 import com.example.scholarhub.feature.mentoring.SampleMentee
+import com.example.scholarhub.feature.payment.MidtransQrisRoute
+import com.example.scholarhub.feature.payment.PaymentGateway
 
 sealed interface AppDestination {
     data object Login : AppDestination
@@ -124,6 +131,7 @@ sealed interface AppDestination {
     data object ScholarMatchForm : AppDestination
     data object ScholarMatchResult : AppDestination
     data object ScholarshipList : AppDestination
+    data class Favorites(val backTo: AppDestination) : AppDestination
     data object ProfileMentor : AppDestination
 }
 
@@ -144,6 +152,8 @@ fun AppNavGraph(
     val openScholarMatch = { currentDestination = AppDestination.ScholarMatchForm }
     // Slot, pesanan, pembayaran, dan sesi dipakai bersama semua akun selama aplikasi terbuka (mentor membuka slot, mentee memesan).
     val mentoring = remember { MentoringStore() }
+    // Pembayaran QRIS lewat Midtrans Sandbox (Worker `server/worker.js`).
+    val gateway = remember { PaymentGateway() }
     var documents by remember { mutableStateOf(account.documents) }
     var tracker by remember { mutableStateOf(account.tracker) }
     var profileStore by remember { mutableStateOf(account.profile) }
@@ -270,6 +280,7 @@ fun AppNavGraph(
                 hasRecommendation = matchResult is ScholarMatchResultState.Ready,
                 onOpenScholarMatch = openScholarMatch,
                 onOpenRecommendation = { currentDestination = AppDestination.ScholarMatchResult },
+                onOpenBookmarks = { currentDestination = AppDestination.Favorites(backTo = AppDestination.Home) },
                 onOpenNotifications = { currentDestination = AppDestination.Notifications(backTo = AppDestination.Home) },
                 onTabSelect = { tab -> menteeTabDestination(tab)?.let { currentDestination = it } },
             )
@@ -281,6 +292,7 @@ fun AppNavGraph(
                 onSeeAllSchedule = { currentDestination = AppDestination.MentoringSchedule(backTo = AppDestination.MentorList) },
                 onOpenNotifications = { currentDestination = AppDestination.Notifications(backTo = AppDestination.MentorList) },
                 onOpenArticles = openTransactions,
+                onOpenBookmarks = { currentDestination = AppDestination.Favorites(backTo = AppDestination.MentorList) },
                 onTabSelect = { tab -> menteeTabDestination(tab)?.let { currentDestination = it } },
             )
         }
@@ -310,21 +322,33 @@ fun AppNavGraph(
             )
         }
         is AppDestination.Qris -> {
-            val back = { currentDestination = dest.backTo }
-            BackHandler(onBack = back)
             val bookings by mentoring.bookings.collectAsState()
             val now = rememberNow(mentoring)
+            val pending = bookings.firstOrNull { it.id == dest.bookingId }?.paymentStatusAt(now) == PaymentStatus.Pending
+            // Tujuan keluar yang menunggu konfirmasi (kembali atau Home); null = dialog tertutup.
+            var leaveTo by remember(dest) { mutableStateOf<AppDestination?>(null) }
+            val leave: (AppDestination) -> Unit = { to -> if (pending) leaveTo = to else currentDestination = to }
+            val back = { leave(dest.backTo) }
+            BackHandler(onBack = back)
+            leaveTo?.let { to ->
+                CancelOrderDialog(
+                    onPayLater = { currentDestination = to },
+                    onCancel = { mentoring.cancel(dest.bookingId); currentDestination = to },
+                    onDismiss = { leaveTo = null },
+                )
+            }
             bookings.firstOrNull { it.id == dest.bookingId }?.let { booking ->
-                QrisPaymentScreen(
+                MidtransQrisRoute(
                     order = booking.toPaymentOrder(),
+                    gateway = gateway,
                     now = now,
                     onBack = back,
-                    onHome = { currentDestination = AppDestination.Home },
-                    onCheckStatus = {
-                        val paid = booking.paymentStatusAt(mentoring.now()) != PaymentStatus.Failed
-                        if (paid) mentoring.markPaid(booking.id)
-                        currentDestination = AppDestination.PaymentResult(booking.id, paid, AppDestination.Home)
+                    onHome = { leave(AppDestination.Home) },
+                    onPaid = {
+                        mentoring.markPaid(booking.id)
+                        currentDestination = AppDestination.PaymentResult(booking.id, true, AppDestination.Home)
                     },
+                    onFailed = { currentDestination = AppDestination.PaymentResult(booking.id, false, AppDestination.Home) },
                 )
             }
         }
@@ -400,6 +424,18 @@ fun AppNavGraph(
                 onOpenNotifications = { currentDestination = AppDestination.Notifications(backTo = AppDestination.ScholarshipList) },
                 onTabSelect = { tab -> menteeTabDestination(tab)?.let { currentDestination = it } },
                 onOpenTransactions = openTransactions,
+                onOpenFavorites = { currentDestination = AppDestination.Favorites(backTo = AppDestination.ScholarshipList) },
+            )
+        }
+        is AppDestination.Favorites -> {
+            val back = { currentDestination = dest.backTo }
+            BackHandler(onBack = back)
+            val favorites by account.favorites.collectAsState()
+            val now = remember { java.time.Instant.now() }
+            FavoriteScholarshipsScreen(
+                items = catalog.filter { it.id in favorites }.map { it.toCatalogItem(now) }.sortedForCatalog().map { it.card },
+                onBack = back,
+                onOpenDetail = { id -> currentDestination = AppDestination.ScholarshipDetail(id, backTo = dest) },
             )
         }
         is AppDestination.Documents -> {
@@ -411,6 +447,7 @@ fun AppNavGraph(
                 onTabSelect = { tab -> menteeTabDestination(tab)?.let { currentDestination = it } },
                 initialFilter = dest.filter,
                 onOpenTransactions = openTransactions,
+                onOpenFavorites = { currentDestination = AppDestination.Favorites(backTo = dest) },
             )
         }
         is AppDestination.DocumentPayment -> {
@@ -429,7 +466,8 @@ fun AppNavGraph(
             val purchases by documents.purchases.collectAsState()
             val now = rememberNow(mentoring)
             purchases.firstOrNull { it.id == dest.purchaseId }?.let { purchase ->
-                QrisPaymentScreen(
+                MidtransQrisRoute(
+                    gateway = gateway,
                     order = PaymentOrder(
                         title = purchase.document.title,
                         details = "Dokumen Premium\nPembayaran satu kali · Akses selamanya",
@@ -443,11 +481,11 @@ fun AppNavGraph(
                     now = now,
                     onBack = back,
                     onHome = { currentDestination = AppDestination.Home },
-                    onCheckStatus = {
-                        val paid = purchase.statusAt(documents.now()) != PaymentStatus.Failed
-                        if (paid) documents.markPaid(purchase.id)
-                        currentDestination = AppDestination.DocumentResult(purchase.id, paid, AppDestination.Documents())
+                    onPaid = {
+                        documents.markPaid(purchase.id)
+                        currentDestination = AppDestination.DocumentResult(purchase.id, true, AppDestination.Documents())
                     },
+                    onFailed = { currentDestination = AppDestination.DocumentResult(purchase.id, false, AppDestination.Documents()) },
                 )
             }
         }
@@ -584,11 +622,14 @@ fun AppNavGraph(
             }
             val back = { currentDestination = dest.backTo }
             BackHandler(onBack = back)
+            val favorites by account.favorites.collectAsState()
             ScholarshipDetailScreen(
                 model = model,
                 onBack = back,
                 scholarMatchRelevancePercent = dest.relevancePercent,
                 onFindMentor = { currentDestination = AppDestination.MentorList },
+                favorite = dest.scholarshipId in favorites,
+                onToggleFavorite = { account.favorites.update { if (dest.scholarshipId in it) it - dest.scholarshipId else it + dest.scholarshipId } },
             )
         }
         AppDestination.MentorHome -> {
@@ -712,4 +753,6 @@ private class AccountData(repository: LocalScholarshipRepository) {
     val profile = ProfileStore()
     val mentorProfile = MentorProfileStore()
     var readNotifications: Set<String> = emptySet()
+    /** ID beasiswa yang ditandai hati di Detail Beasiswa. */
+    val favorites = MutableStateFlow(emptySet<String>())
 }
