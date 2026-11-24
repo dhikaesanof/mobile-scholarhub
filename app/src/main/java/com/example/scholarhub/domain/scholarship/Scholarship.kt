@@ -9,16 +9,28 @@ data class ScholarshipCatalog(
     val scheduleAsOf: LocalDate,
     val timeZone: ZoneId,
     val preferenceOptions: List<PreferenceOption>,
+    /** Pilihan kampus di form ScholarMatch beserta tipenya (PTN/PTS). */
+    val campusOptions: List<CampusOption> = emptyList(),
+    /** Pilihan program studi di form ScholarMatch. */
+    val majorOptions: List<String> = emptyList(),
     val scholarships: List<Scholarship>,
 )
 
-data class PreferenceOption(val id: String, val label: String)
+/** [group] mengelompokkan pilihan di form (mis. "Bantuan dana"). */
+data class PreferenceOption(val id: String, val label: String, val group: String? = null)
+
+data class CampusOption(val name: String, val type: String)
+
+enum class FundingType(val label: String) { Full("Fully Funded"), Partial("Partial Funded"), Nonfinancial("Nonfinansial") }
 
 data class Scholarship(
     val id: String,
     val name: String,
     val provider: String,
     val period: String,
+    /** Negara tempat studi; "Indonesia" berarti dalam negeri. */
+    val studyCountry: String,
+    val fundingType: FundingType,
     val registration: ScholarshipRegistration,
     val summary: ScholarshipSummary,
     val requirements: List<ScholarshipSection>,
@@ -47,7 +59,11 @@ data class ScholarshipSection(
     val title: String,
     val body: String,
     val items: List<String> = emptyList(),
+    /** Tahap timeline (subbab `selectionSchedule`), urut waktu. */
+    val steps: List<TimelineStep> = emptyList(),
 )
+
+data class TimelineStep(val label: String, val start: LocalDate, val end: LocalDate?, val note: String?)
 
 data class ScholarshipBenefit(
     val title: String,

@@ -1,6 +1,8 @@
 package com.example.scholarhub.data.scholarship
 
+import com.example.scholarhub.domain.scholarship.CampusOption
 import com.example.scholarhub.domain.scholarship.EligibilityRule
+import com.example.scholarhub.domain.scholarship.FundingType
 import com.example.scholarhub.domain.scholarship.PreferenceOption
 import com.example.scholarhub.domain.scholarship.RuleOperator
 import com.example.scholarhub.domain.scholarship.RuleValue
@@ -14,6 +16,7 @@ import com.example.scholarhub.domain.scholarship.ScholarshipSection
 import com.example.scholarhub.domain.scholarship.ScholarshipSources
 import com.example.scholarhub.domain.scholarship.ScholarshipSummary
 import com.example.scholarhub.domain.scholarship.ScholarshipTrack
+import com.example.scholarhub.domain.scholarship.TimelineStep
 import java.math.BigDecimal
 import java.time.DateTimeException
 import java.time.LocalDate
@@ -25,7 +28,7 @@ import org.json.JSONObject
 import org.json.JSONTokener
 
 internal object ScholarshipJsonParser {
-    private const val SCHEMA_VERSION = 1
+    private const val SCHEMA_VERSION = 2
 
     fun parse(json: String): ScholarshipCatalog = try {
         val tokens = JSONTokener(json)
@@ -35,6 +38,8 @@ internal object ScholarshipJsonParser {
 
         val preferences = root.getJSONArray("preferenceOptions").mapItems { getJSONObject(it).preference() }
         val scholarships = root.getJSONArray("scholarships").mapItems { getJSONObject(it).scholarship() }
+        val campuses = root.objects("campusOptions") { CampusOption(string("name"), string("type")) }
+        val majors = root.strings("majorOptions")
         require(preferences.distinctBy { it.id }.size == preferences.size) { "ID prioritas duplikat" }
         require(scholarships.distinctBy { it.id }.size == scholarships.size) { "ID beasiswa duplikat" }
 
@@ -42,6 +47,8 @@ internal object ScholarshipJsonParser {
             scheduleAsOf = LocalDate.parse(root.string("scheduleAsOf")),
             timeZone = ZoneId.of(root.string("timeZone")),
             preferenceOptions = preferences,
+            campusOptions = campuses,
+            majorOptions = majors,
             scholarships = scholarships,
         )
     } catch (error: JSONException) {
@@ -52,13 +59,20 @@ internal object ScholarshipJsonParser {
         throw InvalidScholarshipCatalogException(error)
     }
 
-    private fun JSONObject.preference() = PreferenceOption(string("id"), string("label"))
+    private fun JSONObject.preference() = PreferenceOption(string("id"), string("label"), optionalString("group"))
 
     private fun JSONObject.scholarship() = Scholarship(
         id = string("id"),
         name = string("name"),
         provider = string("provider"),
         period = string("period"),
+        studyCountry = string("studyCountry"),
+        fundingType = when (val value = string("fundingType")) {
+            "full" -> FundingType.Full
+            "partial" -> FundingType.Partial
+            "nonfinancial" -> FundingType.Nonfinancial
+            else -> throw IllegalArgumentException("Jenis pendanaan tidak didukung: $value")
+        },
         registration = getJSONObject("registration").registration(),
         summary = getJSONObject("summary").summary(),
         requirements = objects("requirements") { section() },
@@ -87,6 +101,14 @@ internal object ScholarshipJsonParser {
         title = string("title"),
         body = optionalString("body").orEmpty(),
         items = strings("items"),
+        steps = objects("steps") {
+            TimelineStep(
+                label = string("label"),
+                start = LocalDate.parse(string("start")),
+                end = optionalString("end")?.let(LocalDate::parse),
+                note = optionalString("note"),
+            )
+        },
     )
 
     private fun JSONObject.benefit() = ScholarshipBenefit(
