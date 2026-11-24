@@ -1,0 +1,10 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="10dp"
+    android:height="20dp"
+    android:viewportWidth="10"
+    android:viewportHeight="20">
+    <!-- Figma: #0B1727 ditumpuk lima lapis hitam 20%. -->
+    <path
+        android:fillColor="#FF04080D"
+        android:pathData="M5 12.9885L0 7.98846L1.16667 6.82179L5 10.6551L8.83333 6.82179L10 7.98846L5 12.9885Z" />
+</vector>

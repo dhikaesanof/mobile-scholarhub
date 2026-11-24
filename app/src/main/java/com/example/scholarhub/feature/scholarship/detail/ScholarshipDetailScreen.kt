@@ -168,16 +168,22 @@ private fun ScholarshipDetailContent(
                             .padding(start = 23.dp, end = 23.dp, top = 16.dp, bottom = 24.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp),
                     ) {
-                        Hero(scholarship, relevancePercent)
+                        Hero(scholarship, relevancePercent, favorite, onToggleFavorite)
                         DetailTabs(tab) { tab = it }
+                        // Figma: portal resmi tampil di ketiga tab, tepat di bawah tab.
+                        scholarship.registration.applicationUrl?.takeIf { it.isNotBlank() }?.let { url ->
+                            Portal("PORTAL RESMI PENDAFTARAN", url) { openLink(url) }
+                        }
                         when (tab) {
-                            DetailTab.Overview -> Overview(scholarship, openLink)
+                            DetailTab.Overview -> Overview(scholarship)
                             DetailTab.Requirements -> Sections(scholarship.requirements)
                             DetailTab.Guide -> {
                                 Sections(scholarship.guide.sections)
                                 scholarship.guide.officialGuideUrl?.takeIf { it.isNotBlank() }?.let { url ->
                                     Portal("PANDUAN RESMI", url) { openLink(url) }
                                 }
+                                // Figma `130:8903`: banner mentor hanya di akhir tab Panduan.
+                                MentorCtaBanner(onFindMentor)
                             }
                         }
                         MentorCtaBanner(onFindMentor)
@@ -313,7 +319,7 @@ private fun DetailTabs(selected: DetailTab, onSelect: (DetailTab) -> Unit) {
 }
 
 @Composable
-private fun Overview(scholarship: Scholarship, openLink: (String) -> Unit) {
+private fun Overview(scholarship: Scholarship) {
     val summary = scholarship.summary
     scholarship.registration.applicationUrl?.takeIf { it.isNotBlank() }?.let { url ->
         Portal("PORTAL RESMI PENDAFTARAN", url) { openLink(url) }
