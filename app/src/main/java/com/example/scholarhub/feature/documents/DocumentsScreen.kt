@@ -106,6 +106,7 @@ fun DocumentsScreen(
     onTabSelect: (MenteeNavTab) -> Unit = {},
     initialFilter: DocumentFilter = DocumentFilter.All,
     onOpenTransactions: () -> Unit = {},
+    onOpenFavorites: () -> Unit = {},
 ) {
     val purchases by store.purchases.collectAsState()
     var filter by rememberSaveable { mutableStateOf(initialFilter) }
@@ -130,7 +131,7 @@ fun DocumentsScreen(
 
     Scaffold(
         containerColor = Base,
-        topBar = { ScholarHubTopBar(onArticleClick = onOpenTransactions, onNotificationClick = onOpenNotifications) },
+        topBar = { ScholarHubTopBar(onArticleClick = onOpenTransactions, onNotificationClick = onOpenNotifications, onBookmarkClick = onOpenFavorites) },
         bottomBar = { MenteeBottomBar(currentTab = MenteeNavTab.Documents, onTabSelect = onTabSelect) },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->

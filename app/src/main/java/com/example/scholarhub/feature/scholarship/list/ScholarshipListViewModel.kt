@@ -25,8 +25,7 @@ class ScholarshipListViewModel(
         viewModelScope.launch {
             state.value = repository.getCatalog().fold(
                 onSuccess = { catalog ->
-                    val items = catalog.scholarships.map { it.toCatalogItem(clock.instant()) }.sortedForCatalog()
-                    ScholarshipListState.Ready(items = items, activeCount = items.count { it.isActive })
+                    ScholarshipListState.Ready(catalog.scholarships.map { it.toCatalogItem(clock.instant()) }.sortedForCatalog())
                 },
                 onFailure = { ScholarshipListState.Error },
             )
@@ -37,5 +36,5 @@ class ScholarshipListViewModel(
 sealed interface ScholarshipListState {
     data object Loading : ScholarshipListState
     data object Error : ScholarshipListState
-    data class Ready(val items: List<CatalogItem>, val activeCount: Int) : ScholarshipListState
+    data class Ready(val items: List<CatalogItem>) : ScholarshipListState
 }

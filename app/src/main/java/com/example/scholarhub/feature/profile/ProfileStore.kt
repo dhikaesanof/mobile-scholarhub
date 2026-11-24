@@ -1,14 +1,10 @@
 package com.example.scholarhub.feature.profile
 
 import android.net.Uri
-import com.example.scholarhub.data.user.UserRepository
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 
 val AchievementLevels = listOf("Kampus", "Kota/Kabupaten", "Provinsi", "Nasional", "Internasional")
 val DegreeOptions = listOf("D3", "D4", "S1", "S2", "S3")
@@ -50,50 +46,18 @@ val SampleMenteeProfile = MenteeProfile(
     ),
 )
 
-/** Profil di memori dan Firebase untuk satu sesi masuk. */
+/** Profil di memori untuk satu sesi masuk. shortcut: belum tersimpan permanen; pindahkan ke penyimpanan akun saat backend ada. */
 class ProfileStore {
-    private val userRepository = UserRepository()
-    private val coroutineScope = CoroutineScope(Dispatchers.IO)
-    
     private val state = MutableStateFlow(MenteeProfile())
     val profile: StateFlow<MenteeProfile> = state.asStateFlow()
-    
-    private var isLoaded = false
-    
-    init {
-        // Ambil data profil dari Firebase saat ProfileStore pertama kali dipanggil
-        coroutineScope.launch {
-            val savedProfile = userRepository.getProfile()
-            if (savedProfile != null) {
-                state.value = savedProfile
-            }
-            isLoaded = true
-        }
+
+    fun update(transform: (MenteeProfile) -> MenteeProfile) = state.update(transform)
+
+    fun addAchievement(title: String, level: String, year: Int, organizer: String) = state.update {
+        it.copy(achievements = listOf(Achievement("A${System.nanoTime()}", title, level, year, organizer)) + it.achievements)
     }
 
-    fun update(transform: (MenteeProfile) -> MenteeProfile) {
-        state.update(transform)
-        saveToFirebase()
-    }
-
-    fun addAchievement(title: String, level: String, year: Int, organizer: String) {
-        state.update {
-            it.copy(achievements = listOf(Achievement("A${System.nanoTime()}", title, level, year, organizer)) + it.achievements)
-        }
-        saveToFirebase()
-    }
-
-    fun removeAchievement(id: String) {
-        state.update { p -> p.copy(achievements = p.achievements.filterNot { it.id == id }) }
-        saveToFirebase()
-    }
-    
-    private fun saveToFirebase() {
-        if (!isLoaded) return // Mencegah data terhapus (overwrite) saat pertama kali login
-        coroutineScope.launch {
-            userRepository.saveProfile(state.value)
-        }
-    }
+    fun removeAchievement(id: String) = state.update { p -> p.copy(achievements = p.achievements.filterNot { it.id == id }) }
 }
 
 /** Aturan password baru (Figma `213:3306`): minimal 8 karakter, berisi huruf dan angka. Null = valid. */
