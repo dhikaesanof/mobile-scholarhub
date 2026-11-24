@@ -5,12 +5,9 @@ import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
-import androidx.lifecycle.ViewModelProvider
-import androidx.lifecycle.viewmodel.initializer
-import androidx.lifecycle.viewmodel.viewModelFactory
 import com.example.scholarhub.data.scholarship.LocalScholarshipRepository
-import com.example.scholarhub.feature.scholarship.detail.ScholarshipDetailScreen
-import com.example.scholarhub.feature.scholarship.detail.ScholarshipDetailViewModel
+import com.example.scholarhub.navigation.AppDestination
+import com.example.scholarhub.navigation.AppNavGraph
 import com.example.scholarhub.ui.theme.ScholarHubTheme
 
 class MainActivity : ComponentActivity() {
@@ -18,19 +15,21 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(statusBarStyle = SystemBarStyle.light(0xFFF1F1F1.toInt(), 0xFFF1F1F1.toInt()))
         val repository = LocalScholarshipRepository(assets)
-        val scholarshipId = intent.getStringExtra("scholarshipId") ?: "SH28"
-        val factory = viewModelFactory {
-            initializer { ScholarshipDetailViewModel(scholarshipId, repository) }
+        // Extra sementara untuk membuka layar tertentu saat pengembangan:
+        // `scholarshipId` membuka detail beasiswa, `startScreen=transactions` membuka Riwayat Transaksi
+        // (pintu masuknya dari Profil belum dibuat).
+        val initialDestination = when {
+            intent.hasExtra("scholarshipId") ->
+                AppDestination.ScholarshipDetail(intent.getStringExtra("scholarshipId") ?: "DM01")
+            intent.getStringExtra("startScreen") == "transactions" -> AppDestination.TransactionHistory
+            else -> AppDestination.Login
         }
-        val model = ViewModelProvider(this, factory)[
-            "scholarship-detail:$scholarshipId",
-            ScholarshipDetailViewModel::class.java,
-        ]
         setContent {
             ScholarHubTheme {
-                ScholarshipDetailScreen(
-                    model = model,
-                    onBack = ::finish,
+                AppNavGraph(
+                    repository = repository,
+                    initialDestination = initialDestination,
+                    onFinish = ::finish,
                 )
             }
         }
